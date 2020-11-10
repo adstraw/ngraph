@@ -18,11 +18,28 @@
 
 #include "ngraph/ngraph.hpp"
 #include "ngraph/op/util/attr_types.hpp"
-#include "ngraph/opsets/opset1.hpp"
-#include "ngraph/opsets/opset3.hpp"
+#include "ngraph/opset/opset1.hpp"
+#include "ngraph/opset/opset3.hpp"
+
+#include "util/visitor.hpp"
 
 using namespace std;
 using namespace ngraph;
+using ngraph::test::NodeBuilder;
+using ngraph::test::ValueMap;
+
+TEST(attributes, value_map)
+{
+    ValueMap value_map;
+    bool a = true;
+    int8_t b = 2;
+    value_map.insert("a", a);
+    value_map.insert("b", b);
+    bool g_a = value_map.get<bool>("a");
+    int8_t g_b = value_map.get<int8_t>("b");
+    EXPECT_EQ(a, g_a);
+    EXPECT_EQ(b, g_b);
+}
 
 enum class TuringModel
 {
@@ -54,7 +71,46 @@ namespace ngraph
     };
 
     constexpr DiscreteTypeInfo AttributeAdapter<TuringModel>::type_info;
-} // namespace ngraph
+
+    struct Position
+    {
+        float x;
+        float y;
+        float z;
+        bool operator==(const Position& p) const { return x == p.x && y == p.y && z == p.z; }
+        Position& operator=(const Position& p)
+        {
+            x = p.x;
+            y = p.y;
+            z = p.z;
+            return *this;
+        }
+    };
+
+    template <>
+    class AttributeAdapter<Position> : public VisitorAdapter
+    {
+    public:
+        AttributeAdapter(Position& value)
+            : m_ref(value)
+        {
+        }
+        bool visit_attributes(AttributeVisitor& visitor) override
+        {
+            visitor.on_attribute("x", m_ref.x);
+            visitor.on_attribute("y", m_ref.y);
+            visitor.on_attribute("z", m_ref.z);
+            return true;
+        }
+        static constexpr DiscreteTypeInfo type_info{"AttributeAdapter<Position>", 0};
+        const DiscreteTypeInfo& get_type_info() const override { return type_info; }
+
+    protected:
+        Position& m_ref;
+    };
+
+    constexpr DiscreteTypeInfo AttributeAdapter<Position>::type_info;
+}
 
 // Given a Turing machine program and data, return scalar 1 if the program would
 // complete, 1 if it would not.
@@ -78,6 +134,7 @@ public:
            int16_t val_int16_t,
            int32_t val_int32_t,
            int64_t val_int64_t,
+           size_t val_size_t,
            const std::vector<std::string>& vec_string,
            const std::vector<float>& vec_float,
            const std::vector<double>& vec_double,
@@ -88,7 +145,13 @@ public:
            const std::vector<int8_t>& vec_int8_t,
            const std::vector<int16_t>& vec_int16_t,
            const std::vector<int32_t>& vec_int32_t,
-           const std::vector<int64_t>& vec_int64_t)
+           const std::vector<int64_t>& vec_int64_t,
+           const std::vector<size_t>& vec_size_t,
+           const Position& position,
+           const shared_ptr<Node>& node,
+           const NodeVector& node_vector,
+           const ParameterVector& parameter_vector,
+           const ResultVector& result_vector)
         : Op({program, data})
         , m_turing_model(turing_model)
         , m_element_type(element_type)
@@ -105,6 +168,7 @@ public:
         , m_val_int16_t(val_int16_t)
         , m_val_int32_t(val_int32_t)
         , m_val_int64_t(val_int64_t)
+        , m_val_size_t(val_size_t)
         , m_vec_string(vec_string)
         , m_vec_float(vec_float)
         , m_vec_double(vec_double)
@@ -116,6 +180,12 @@ public:
         , m_vec_int16_t(vec_int16_t)
         , m_vec_int32_t(vec_int32_t)
         , m_vec_int64_t(vec_int64_t)
+        , m_vec_size_t(vec_size_t)
+        , m_position(position)
+        , m_node(node)
+        , m_node_vector(node_vector)
+        , m_parameter_vector(parameter_vector)
+        , m_result_vector(result_vector)
     {
     }
 
@@ -138,6 +208,7 @@ public:
     int64_t get_val_int16_t() const { return m_val_int16_t; }
     int64_t get_val_int32_t() const { return m_val_int32_t; }
     int64_t get_val_int64_t() const { return m_val_int64_t; }
+    size_t get_val_size_t() const { return m_val_size_t; }
     const vector<uint8_t>& get_vec_uint8_t() const { return m_vec_uint8_t; }
     const vector<uint16_t>& get_vec_uint16_t() const { return m_vec_uint16_t; }
     const vector<uint32_t>& get_vec_uint32_t() const { return m_vec_uint32_t; }
@@ -149,6 +220,12 @@ public:
     const vector<string>& get_vec_string() const { return m_vec_string; }
     const vector<float>& get_vec_float() const { return m_vec_float; }
     const vector<double>& get_vec_double() const { return m_vec_double; }
+    const vector<size_t>& get_vec_size_t() const { return m_vec_size_t; }
+    const Position& get_position() const { return m_position; }
+    const shared_ptr<Node>& get_node() const { return m_node; }
+    const NodeVector& get_node_vector() const { return m_node_vector; }
+    const ParameterVector& get_parameter_vector() const { return m_parameter_vector; }
+    const ResultVector& get_result_vector() const { return m_result_vector; }
     shared_ptr<Node> clone_with_new_inputs(const OutputVector& args) const override
     {
         return make_shared<Oracle>(args[0],
@@ -168,6 +245,7 @@ public:
                                    m_val_int16_t,
                                    m_val_int32_t,
                                    m_val_int64_t,
+                                   m_val_size_t,
                                    m_vec_string,
                                    m_vec_float,
                                    m_vec_double,
@@ -178,7 +256,13 @@ public:
                                    m_vec_int8_t,
                                    m_vec_int16_t,
                                    m_vec_int32_t,
-                                   m_vec_int64_t);
+                                   m_vec_int64_t,
+                                   m_vec_size_t,
+                                   m_position,
+                                   m_node,
+                                   m_node_vector,
+                                   m_parameter_vector,
+                                   m_result_vector);
     }
 
     void validate_and_infer_types() override { set_output_type(0, element::i64, {}); }
@@ -199,6 +283,7 @@ public:
         visitor.on_attribute("val_int16_t", m_val_int16_t);
         visitor.on_attribute("val_int32_t", m_val_int32_t);
         visitor.on_attribute("val_int64_t", m_val_int64_t);
+        visitor.on_attribute("val_size_t", m_val_size_t);
         visitor.on_attribute("vec_string", m_vec_string);
         visitor.on_attribute("vec_float", m_vec_float);
         visitor.on_attribute("vec_double", m_vec_double);
@@ -210,6 +295,12 @@ public:
         visitor.on_attribute("vec_int16_t", m_vec_int16_t);
         visitor.on_attribute("vec_int32_t", m_vec_int32_t);
         visitor.on_attribute("vec_int64_t", m_vec_int64_t);
+        visitor.on_attribute("vec_size_t", m_vec_size_t);
+        visitor.on_attribute("position", m_position);
+        visitor.on_attribute("node", m_node);
+        visitor.on_attribute("node_vector", m_node_vector);
+        visitor.on_attribute("parameter_vector", m_parameter_vector);
+        visitor.on_attribute("result_vector", m_result_vector);
         return true;
     }
 
@@ -229,6 +320,7 @@ protected:
     int16_t m_val_int16_t;
     int32_t m_val_int32_t;
     int64_t m_val_int64_t;
+    size_t m_val_size_t{23};
     vector<string> m_vec_string;
     vector<float> m_vec_float;
     vector<double> m_vec_double;
@@ -240,290 +332,22 @@ protected:
     vector<int16_t> m_vec_int16_t;
     vector<int32_t> m_vec_int32_t;
     vector<int64_t> m_vec_int64_t;
+    vector<size_t> m_vec_size_t;
+    Position m_position;
+    shared_ptr<Node> m_node;
+    NodeVector m_node_vector;
+    ParameterVector m_parameter_vector;
+    ResultVector m_result_vector;
 };
 
 constexpr NodeTypeInfo Oracle::type_info;
 
-class NodeSaver : public AttributeVisitor
-{
-public:
-    NodeSaver(shared_ptr<Node> node)
-        : m_node_type_info(node->get_type_info())
-    {
-        node->visit_attributes(*this);
-    }
-    const NodeTypeInfo& get_node_type_info() { return m_node_type_info; }
-    string& get_string(const string& name) { return m_strings.at(name); }
-    bool get_bool(const string& name) { return m_bools.at(name); }
-    float get_float(const string& name) { return m_doubles.at(name); }
-    double get_double(const string& name) { return m_doubles.at(name); }
-    int64_t get_signed(const string& name) { return m_signeds.at(name); }
-    uint64_t get_unsigned(const string& name) { return m_unsigneds.at(name); }
-    vector<float>& get_float_vector(const string& name) { return m_float_vectors.at(name); }
-    vector<double>& get_double_vector(const string& name) { return m_double_vectors.at(name); }
-    vector<int8_t>& get_int8_t_vector(const string& name) { return m_int8_t_vectors.at(name); }
-    vector<int16_t>& get_int16_t_vector(const string& name) { return m_int16_t_vectors.at(name); }
-    vector<int32_t>& get_int32_t_vector(const string& name) { return m_int32_t_vectors.at(name); }
-    vector<int64_t>& get_int64_t_vector(const string& name) { return m_int64_t_vectors.at(name); }
-    vector<uint8_t>& get_uint8_t_vector(const string& name) { return m_uint8_t_vectors.at(name); }
-    vector<uint16_t>& get_uint16_t_vector(const string& name)
-    {
-        return m_uint16_t_vectors.at(name);
-    }
-    vector<uint32_t>& get_uint32_t_vector(const string& name)
-    {
-        return m_uint32_t_vectors.at(name);
-    }
-    vector<uint64_t>& get_uint64_t_vector(const string& name)
-    {
-        return m_uint64_t_vectors.at(name);
-    }
-
-    vector<string>& get_string_vector(const string& name) { return m_string_vectors.at(name); }
-    HostTensorPtr get_host_tensor(const string& name) { return m_host_tensors.at(name); }
-    void set_string(const string& name, const string& value) { m_strings[name] = value; }
-    void set_bool(const string& name, bool value) { m_bools[name] = value; }
-    void set_double(const string& name, double value) { m_doubles[name] = value; }
-    void set_signed(const string& name, int64_t value) { m_signeds[name] = value; }
-    void set_float_vector(const string& name, const vector<float>& value)
-    {
-        m_float_vectors[name] = value;
-    }
-    void set_double_vector(const string& name, const vector<double>& value)
-    {
-        m_double_vectors[name] = value;
-    }
-    void set_int8_t_vector(const string& name, const vector<int8_t>& value)
-    {
-        m_int8_t_vectors[name] = value;
-    }
-    void set_int16_t_vector(const string& name, const vector<int16_t>& value)
-    {
-        m_int16_t_vectors[name] = value;
-    }
-    void set_int32_t_vector(const string& name, const vector<int32_t>& value)
-    {
-        m_int32_t_vectors[name] = value;
-    }
-    void set_int64_t_vector(const string& name, const vector<int64_t>& value)
-    {
-        m_int64_t_vectors[name] = value;
-    }
-    void set_uint8_t_vector(const string& name, const vector<uint8_t>& value)
-    {
-        m_uint8_t_vectors[name] = value;
-    }
-    void set_uint16_t_vector(const string& name, const vector<uint16_t>& value)
-    {
-        m_uint16_t_vectors[name] = value;
-    }
-    void set_uint32_t_vector(const string& name, const vector<uint32_t>& value)
-    {
-        m_uint32_t_vectors[name] = value;
-    }
-    void set_uint64_t_vector(const string& name, const vector<uint64_t>& value)
-    {
-        m_uint64_t_vectors[name] = value;
-    }
-    void set_string_vector(const string& name, const vector<string>& value)
-    {
-        m_string_vectors[name] = value;
-    }
-    void set_host_tensor(const string& name, const HostTensorPtr& value)
-    {
-        m_host_tensors[name] = value;
-    }
-
-    void on_attribute(const string& name, string& value) override { set_string(name, value); };
-    void on_attribute(const string& name, bool& value) override { set_bool(name, value); }
-    void on_adapter(const string& name, ValueAccessor<void>& adapter) override
-    {
-        NGRAPH_CHECK(false, "Attribute \"", name, "\" cannot be marshalled");
-    }
-    // The remaining adapter methods fall back on the void adapter if not implemented
-    void on_adapter(const string& name, ValueAccessor<string>& adapter) override
-    {
-        set_string(name, adapter.get());
-    };
-    void on_adapter(const string& name, ValueAccessor<int64_t>& adapter) override
-    {
-        set_signed(name, adapter.get());
-    }
-    void on_adapter(const string& name, ValueAccessor<double>& adapter) override
-    {
-        set_double(name, adapter.get());
-    }
-    void on_adapter(const string& name, ValueAccessor<vector<string>>& adapter) override
-    {
-        set_string_vector(name, adapter.get());
-    }
-    void on_adapter(const string& name, ValueAccessor<vector<float>>& adapter) override
-    {
-        set_float_vector(name, adapter.get());
-    }
-    void on_adapter(const string& name, ValueAccessor<vector<double>>& adapter) override
-    {
-        set_double_vector(name, adapter.get());
-    }
-
-    void on_adapter(const string& name, ValueAccessor<vector<int8_t>>& adapter) override
-    {
-        set_int8_t_vector(name, adapter.get());
-    }
-    void on_adapter(const string& name, ValueAccessor<vector<int16_t>>& adapter) override
-    {
-        set_int16_t_vector(name, adapter.get());
-    }
-    void on_adapter(const string& name, ValueAccessor<vector<int32_t>>& adapter) override
-    {
-        set_int32_t_vector(name, adapter.get());
-    }
-    void on_adapter(const string& name, ValueAccessor<vector<int64_t>>& adapter) override
-    {
-        set_int64_t_vector(name, adapter.get());
-    }
-    void on_adapter(const string& name, ValueAccessor<vector<uint8_t>>& adapter) override
-    {
-        set_uint8_t_vector(name, adapter.get());
-    }
-    void on_adapter(const string& name, ValueAccessor<vector<uint16_t>>& adapter) override
-    {
-        set_uint16_t_vector(name, adapter.get());
-    }
-    void on_adapter(const string& name, ValueAccessor<vector<uint32_t>>& adapter) override
-    {
-        set_uint32_t_vector(name, adapter.get());
-    }
-    void on_adapter(const string& name, ValueAccessor<vector<uint64_t>>& adapter) override
-    {
-        set_uint64_t_vector(name, adapter.get());
-    }
-    void on_attribute(const std::string& name, void* constant_data, size_t size) override
-    {
-        HostTensorPtr data = make_shared<HostTensor>(element::u8, Shape{size});
-        data->write(constant_data, size);
-        set_host_tensor(name, data);
-    }
-
-protected:
-    NodeTypeInfo m_node_type_info;
-    map<string, string> m_strings;
-    map<string, bool> m_bools;
-    map<string, double> m_doubles;
-    map<string, int64_t> m_signeds;
-    map<string, uint64_t> m_unsigneds;
-    map<string, vector<int8_t>> m_int8_t_vectors;
-    map<string, vector<int16_t>> m_int16_t_vectors;
-    map<string, vector<int32_t>> m_int32_t_vectors;
-    map<string, vector<int64_t>> m_int64_t_vectors;
-    map<string, vector<uint8_t>> m_uint8_t_vectors;
-    map<string, vector<uint16_t>> m_uint16_t_vectors;
-    map<string, vector<uint32_t>> m_uint32_t_vectors;
-    map<string, vector<uint64_t>> m_uint64_t_vectors;
-    map<string, vector<float>> m_float_vectors;
-    map<string, vector<double>> m_double_vectors;
-    map<string, vector<std::string>> m_string_vectors;
-    map<string, HostTensorPtr> m_host_tensors;
-};
-
-class NodeBuilder : public AttributeVisitor
-{
-public:
-    NodeBuilder(const shared_ptr<Node>& node)
-        : m_values(node)
-    {
-    }
-
-    // Does not validate, since inputs aren't set
-    shared_ptr<Node> create()
-    {
-        shared_ptr<Node> node(FactoryRegistry<Node>::get().create(m_values.get_node_type_info()));
-        node->visit_attributes(*this);
-        return node;
-    }
-
-    void on_attribute(const string& name, string& value) override
-    {
-        value = m_values.get_string(name);
-    };
-    void on_attribute(const string& name, bool& value) override { value = m_values.get_bool(name); }
-    void on_adapter(const string& name, ValueAccessor<void>& adapter) override
-    {
-        NGRAPH_CHECK(false, "Attribute \"", name, "\" cannot be unmarshalled");
-    }
-    // The remaining adapter methods fall back on the void adapter if not implemented
-    void on_adapter(const string& name, ValueAccessor<string>& adapter) override
-    {
-        adapter.set(m_values.get_string(name));
-    };
-    void on_adapter(const string& name, ValueAccessor<int64_t>& adapter) override
-    {
-        adapter.set(m_values.get_signed(name));
-    }
-    void on_adapter(const string& name, ValueAccessor<double>& adapter) override
-    {
-        adapter.set(m_values.get_double(name));
-    }
-
-    void on_adapter(const string& name, ValueAccessor<vector<int8_t>>& adapter) override
-    {
-        adapter.set(m_values.get_int8_t_vector(name));
-    }
-    void on_adapter(const string& name, ValueAccessor<vector<int16_t>>& adapter) override
-    {
-        adapter.set(m_values.get_int16_t_vector(name));
-    }
-    void on_adapter(const string& name, ValueAccessor<vector<int32_t>>& adapter) override
-    {
-        adapter.set(m_values.get_int32_t_vector(name));
-    }
-    void on_adapter(const string& name, ValueAccessor<vector<int64_t>>& adapter) override
-    {
-        adapter.set(m_values.get_int64_t_vector(name));
-    }
-    void on_adapter(const string& name, ValueAccessor<vector<uint8_t>>& adapter) override
-    {
-        adapter.set(m_values.get_uint8_t_vector(name));
-    }
-    void on_adapter(const string& name, ValueAccessor<vector<uint16_t>>& adapter) override
-    {
-        adapter.set(m_values.get_uint16_t_vector(name));
-    }
-    void on_adapter(const string& name, ValueAccessor<vector<uint32_t>>& adapter) override
-    {
-        adapter.set(m_values.get_uint32_t_vector(name));
-    }
-    void on_adapter(const string& name, ValueAccessor<vector<uint64_t>>& adapter) override
-    {
-        adapter.set(m_values.get_uint64_t_vector(name));
-    }
-    void on_adapter(const string& name, ValueAccessor<vector<string>>& adapter) override
-    {
-        adapter.set(m_values.get_string_vector(name));
-    }
-    void on_adapter(const string& name, ValueAccessor<vector<float>>& adapter) override
-    {
-        adapter.set(m_values.get_float_vector(name));
-    }
-    void on_adapter(const string& name, ValueAccessor<vector<double>>& adapter) override
-    {
-        adapter.set(m_values.get_double_vector(name));
-    }
-    void on_attribute(const std::string& name, void* constant_data, size_t size) override
-    {
-        HostTensorPtr data = m_values.get_host_tensor(name);
-        data->read(constant_data, size);
-    }
-
-protected:
-    NodeSaver m_values;
-};
-
 TEST(attributes, user_op)
 {
     FactoryRegistry<Node>::get().register_factory<Oracle>();
-    auto program = make_shared<op::Parameter>(element::i32, Shape{200});
-    auto data = make_shared<op::Parameter>(element::i32, Shape{200});
+    auto program = make_shared<op::v0::Parameter>(element::i32, Shape{200});
+    auto data = make_shared<op::v0::Parameter>(element::i32, Shape{200});
+    auto result = make_shared<op::v0::Result>(data);
     auto oracle = make_shared<Oracle>(program,
                                       data,
                                       TuringModel::XL1200,
@@ -541,6 +365,7 @@ TEST(attributes, user_op)
                                       -2,
                                       -4,
                                       -8,
+                                      34,
                                       vector<string>{"Hello", "World"},
                                       vector<float>{1.0f, 2.0f},
                                       vector<double>{1.0, 2.0},
@@ -551,8 +376,25 @@ TEST(attributes, user_op)
                                       vector<int8_t>{1, 2, 4, 8},
                                       vector<int16_t>{1, 2, 4, 8},
                                       vector<int32_t>{1, 2, 4, 8},
-                                      vector<int64_t>{1, 2, 4, 8});
-    NodeBuilder builder(oracle);
+                                      vector<int64_t>{1, 2, 4, 8},
+                                      vector<size_t>{1, 3, 8, 4, 2},
+                                      Position{1.3f, 5.1f, 2.3f},
+                                      data,
+                                      NodeVector{program, result, data},
+                                      ParameterVector{data, data, program},
+                                      ResultVector{result});
+    NodeBuilder builder;
+    AttributeVisitor& saver = builder.get_node_saver();
+    AttributeVisitor& loader = builder.get_node_loader();
+    loader.register_node(program, "program");
+    ASSERT_EQ(loader.get_registered_node("program"), program);
+    ASSERT_EQ(loader.get_registered_node_id(program), "program");
+    loader.register_node(data, "data");
+    loader.register_node(result, "result");
+    saver.register_node(program, "program");
+    saver.register_node(data, "data");
+    saver.register_node(result, "result");
+    builder.save_node(oracle);
     auto g_oracle = as_type_ptr<Oracle>(builder.create());
 
     EXPECT_EQ(g_oracle->get_turing_model(), oracle->get_turing_model());
@@ -570,6 +412,7 @@ TEST(attributes, user_op)
     EXPECT_EQ(g_oracle->get_val_int16_t(), oracle->get_val_int16_t());
     EXPECT_EQ(g_oracle->get_val_int32_t(), oracle->get_val_int32_t());
     EXPECT_EQ(g_oracle->get_val_int64_t(), oracle->get_val_int64_t());
+    EXPECT_EQ(g_oracle->get_val_size_t(), oracle->get_val_size_t());
     EXPECT_EQ(g_oracle->get_vec_uint8_t(), oracle->get_vec_uint8_t());
     EXPECT_EQ(g_oracle->get_vec_uint16_t(), oracle->get_vec_uint16_t());
     EXPECT_EQ(g_oracle->get_vec_uint32_t(), oracle->get_vec_uint32_t());
@@ -581,13 +424,19 @@ TEST(attributes, user_op)
     EXPECT_EQ(g_oracle->get_vec_string(), oracle->get_vec_string());
     EXPECT_EQ(g_oracle->get_vec_float(), oracle->get_vec_float());
     EXPECT_EQ(g_oracle->get_vec_double(), oracle->get_vec_double());
+    EXPECT_EQ(g_oracle->get_vec_size_t(), oracle->get_vec_size_t());
+    EXPECT_EQ(g_oracle->get_position(), oracle->get_position());
+    EXPECT_EQ(g_oracle->get_node(), oracle->get_node());
+    EXPECT_EQ(g_oracle->get_node_vector(), oracle->get_node_vector());
+    EXPECT_EQ(g_oracle->get_parameter_vector(), oracle->get_parameter_vector());
+    EXPECT_EQ(g_oracle->get_result_vector(), oracle->get_result_vector());
 }
 
 TEST(attributes, matmul_op)
 {
     FactoryRegistry<Node>::get().register_factory<opset1::MatMul>();
-    auto A = make_shared<op::Parameter>(element::f32, Shape{0, 2});
-    auto B = make_shared<op::Parameter>(element::f32, Shape{2, 0});
+    auto A = make_shared<op::v0::Parameter>(element::f32, Shape{0, 2});
+    auto B = make_shared<op::v0::Parameter>(element::f32, Shape{2, 0});
 
     bool transpose_a = true;
     bool transpose_b = true;
@@ -600,10 +449,47 @@ TEST(attributes, matmul_op)
     EXPECT_EQ(g_matmul->get_transpose_b(), matmul->get_transpose_b());
 }
 
+TEST(attributes, partial_shape)
+{
+    NodeBuilder builder;
+    AttributeVisitor& loader = builder.get_node_loader();
+    AttributeVisitor& saver = builder.get_node_saver();
+
+    PartialShape dyn = PartialShape::dynamic();
+    saver.on_attribute("dyn", dyn);
+    PartialShape g_dyn;
+    loader.on_attribute("dyn", g_dyn);
+    EXPECT_EQ(dyn, g_dyn);
+
+    PartialShape scalar{};
+    saver.on_attribute("scalar", scalar);
+    PartialShape g_scalar;
+    loader.on_attribute("scalar", g_scalar);
+    EXPECT_EQ(scalar, g_scalar);
+
+    PartialShape dyn_vector{Dimension::dynamic()};
+    saver.on_attribute("dyn_vector", dyn_vector);
+    PartialShape g_dyn_vector;
+    loader.on_attribute("dyn_vector", g_dyn_vector);
+    EXPECT_EQ(dyn_vector, g_dyn_vector);
+
+    PartialShape stat_vector{7};
+    saver.on_attribute("stat_vector", stat_vector);
+    PartialShape g_stat_vector;
+    loader.on_attribute("stat_vector", g_stat_vector);
+    EXPECT_EQ(stat_vector, g_stat_vector);
+
+    PartialShape general{7, Dimension::dynamic(), 2, Dimension::dynamic(), 4};
+    saver.on_attribute("general", general);
+    PartialShape g_general;
+    loader.on_attribute("general", g_general);
+    EXPECT_EQ(general, g_general);
+}
+
 TEST(attributes, max_pool_op)
 {
     FactoryRegistry<Node>::get().register_factory<opset1::MaxPool>();
-    auto data = make_shared<op::Parameter>(element::f32, Shape{64, 3, 5});
+    auto data = make_shared<op::v0::Parameter>(element::f32, Shape{64, 3, 5});
 
     auto strides = Strides{2};
     auto pads_begin = Shape{1};
@@ -628,8 +514,8 @@ TEST(attributes, max_pool_op)
 TEST(attributes, mod_op)
 {
     FactoryRegistry<Node>::get().register_factory<opset1::Mod>();
-    auto A = make_shared<op::Parameter>(element::f32, Shape{0, 2});
-    auto B = make_shared<op::Parameter>(element::f32, Shape{2, 0});
+    auto A = make_shared<op::v0::Parameter>(element::f32, Shape{0, 2});
+    auto B = make_shared<op::v0::Parameter>(element::f32, Shape{2, 0});
 
     auto auto_broadcast = op::AutoBroadcastType::NUMPY;
 
@@ -643,8 +529,8 @@ TEST(attributes, mod_op)
 TEST(attributes, non_max_suppression_op_custom_attributes)
 {
     FactoryRegistry<Node>::get().register_factory<opset1::NonMaxSuppression>();
-    auto boxes = make_shared<op::Parameter>(element::f32, Shape{1, 1, 4});
-    auto scores = make_shared<op::Parameter>(element::f32, Shape{1, 1, 1});
+    auto boxes = make_shared<op::v0::Parameter>(element::f32, Shape{1, 1, 4});
+    auto scores = make_shared<op::v0::Parameter>(element::f32, Shape{1, 1, 1});
 
     auto box_encoding = opset1::NonMaxSuppression::BoxEncodingType::CENTER;
     bool sort_result_descending = false;
@@ -661,8 +547,8 @@ TEST(attributes, non_max_suppression_op_custom_attributes)
 TEST(attributes, non_max_suppression_op_default_attributes)
 {
     FactoryRegistry<Node>::get().register_factory<opset1::NonMaxSuppression>();
-    auto boxes = make_shared<op::Parameter>(element::f32, Shape{1, 1, 4});
-    auto scores = make_shared<op::Parameter>(element::f32, Shape{1, 1, 1});
+    auto boxes = make_shared<op::v0::Parameter>(element::f32, Shape{1, 1, 4});
+    auto scores = make_shared<op::v0::Parameter>(element::f32, Shape{1, 1, 1});
 
     auto nms = make_shared<opset1::NonMaxSuppression>(boxes, scores);
     NodeBuilder builder(nms);
@@ -675,8 +561,8 @@ TEST(attributes, non_max_suppression_op_default_attributes)
 TEST(attributes, non_max_suppression_v3_op_custom_attributes)
 {
     FactoryRegistry<Node>::get().register_factory<opset3::NonMaxSuppression>();
-    auto boxes = make_shared<op::Parameter>(element::f32, Shape{1, 1, 4});
-    auto scores = make_shared<op::Parameter>(element::f32, Shape{1, 1, 1});
+    auto boxes = make_shared<op::v0::Parameter>(element::f32, Shape{1, 1, 4});
+    auto scores = make_shared<op::v0::Parameter>(element::f32, Shape{1, 1, 1});
 
     auto box_encoding = opset3::NonMaxSuppression::BoxEncodingType::CENTER;
     bool sort_result_descending = false;
@@ -695,8 +581,8 @@ TEST(attributes, non_max_suppression_v3_op_custom_attributes)
 TEST(attributes, non_max_suppression_v3_op_default_attributes)
 {
     FactoryRegistry<Node>::get().register_factory<opset3::NonMaxSuppression>();
-    auto boxes = make_shared<op::Parameter>(element::f32, Shape{1, 1, 4});
-    auto scores = make_shared<op::Parameter>(element::f32, Shape{1, 1, 1});
+    auto boxes = make_shared<op::v0::Parameter>(element::f32, Shape{1, 1, 4});
+    auto scores = make_shared<op::v0::Parameter>(element::f32, Shape{1, 1, 1});
 
     auto nms = make_shared<opset3::NonMaxSuppression>(boxes, scores);
     NodeBuilder builder(nms);
@@ -710,8 +596,8 @@ TEST(attributes, non_max_suppression_v3_op_default_attributes)
 TEST(attributes, normalize_l2_op)
 {
     FactoryRegistry<Node>::get().register_factory<opset1::NormalizeL2>();
-    auto data = make_shared<op::Parameter>(element::i32, Shape{1});
-    const auto axes = make_shared<op::Constant>(element::i32, Shape{}, vector<int32_t>{0});
+    auto data = make_shared<op::v0::Parameter>(element::i32, Shape{1});
+    const auto axes = make_shared<op::v0::Constant>(element::i32, Shape{}, vector<int32_t>{0});
 
     float eps{1e-6f};
     auto eps_mode = op::EpsMode::ADD;
@@ -727,10 +613,10 @@ TEST(attributes, normalize_l2_op)
 TEST(attributes, one_hot_op)
 {
     FactoryRegistry<Node>::get().register_factory<opset1::OneHot>();
-    auto indices = make_shared<op::Parameter>(element::i64, Shape{1, 3, 2, 3});
-    auto depth = op::Constant::create(element::i64, Shape{}, {4});
-    auto on_value = op::Constant::create(element::f32, Shape{}, {1.0f});
-    auto off_value = op::Constant::create(element::f32, Shape{}, {0.0f});
+    auto indices = make_shared<op::v0::Parameter>(element::i64, Shape{1, 3, 2, 3});
+    auto depth = op::v0::Constant::create(element::i64, Shape{}, {4});
+    auto on_value = op::v0::Constant::create(element::f32, Shape{}, {1.0f});
+    auto off_value = op::v0::Constant::create(element::f32, Shape{}, {0.0f});
 
     int64_t axis = 3;
 
@@ -744,9 +630,9 @@ TEST(attributes, one_hot_op)
 TEST(attributes, pad_op)
 {
     FactoryRegistry<Node>::get().register_factory<opset1::Pad>();
-    auto arg = make_shared<op::Parameter>(element::f32, Shape{1, 2, 3});
-    auto pads_begin = make_shared<op::Parameter>(element::i64, Shape{1});
-    auto pads_end = make_shared<op::Parameter>(element::i64, Shape{1});
+    auto arg = make_shared<op::v0::Parameter>(element::f32, Shape{1, 2, 3});
+    auto pads_begin = make_shared<op::v0::Parameter>(element::i64, Shape{1});
+    auto pads_end = make_shared<op::v0::Parameter>(element::i64, Shape{1});
 
     auto pad_mode = op::PadMode::EDGE;
 
@@ -760,8 +646,8 @@ TEST(attributes, pad_op)
 TEST(attributes, psroi_pooling_op)
 {
     FactoryRegistry<Node>::get().register_factory<opset1::PSROIPooling>();
-    auto input = make_shared<op::Parameter>(element::f32, Shape{1, 1024, 63, 38});
-    auto coords = make_shared<op::Parameter>(element::f32, Shape{300, 5});
+    auto input = make_shared<op::v0::Parameter>(element::f32, Shape{1, 1024, 63, 38});
+    auto coords = make_shared<op::v0::Parameter>(element::f32, Shape{300, 5});
 
     const int64_t output_dim = 882;
     const int64_t group_size = 3;
@@ -787,8 +673,8 @@ TEST(attributes, reduce_logical_and_op)
 {
     // ReduceLogicalAnd derives visit_attributes from op::util::LogicalReductionKeepDims
     FactoryRegistry<Node>::get().register_factory<opset1::ReduceLogicalAnd>();
-    auto data = make_shared<op::Parameter>(element::f32, Shape{3, 4, 5});
-    auto reduction_axes = make_shared<op::Parameter>(element::i64, Shape{2});
+    auto data = make_shared<op::v0::Parameter>(element::f32, Shape{3, 4, 5});
+    auto reduction_axes = make_shared<op::v0::Parameter>(element::i64, Shape{2});
 
     bool keep_dims = true;
 
@@ -803,8 +689,8 @@ TEST(attributes, reduce_logical_or_op)
 {
     // ReduceLogicalOr derives visit_attributes from op::util::LogicalReductionKeepDims
     FactoryRegistry<Node>::get().register_factory<opset1::ReduceLogicalOr>();
-    auto data = make_shared<op::Parameter>(element::f32, Shape{3, 4, 5});
-    auto reduction_axes = make_shared<op::Parameter>(element::i64, Shape{2});
+    auto data = make_shared<op::v0::Parameter>(element::f32, Shape{3, 4, 5});
+    auto reduction_axes = make_shared<op::v0::Parameter>(element::i64, Shape{2});
 
     bool keep_dims = true;
 
@@ -819,8 +705,8 @@ TEST(attributes, reduce_max_op)
 {
     // ReduceMax derives visit_attributes from op::util::ArithmeticReductionKeepDims
     FactoryRegistry<Node>::get().register_factory<opset1::ReduceMax>();
-    auto data = make_shared<op::Parameter>(element::f32, Shape{3, 4, 5});
-    auto reduction_axes = make_shared<op::Parameter>(element::i64, Shape{2});
+    auto data = make_shared<op::v0::Parameter>(element::f32, Shape{3, 4, 5});
+    auto reduction_axes = make_shared<op::v0::Parameter>(element::i64, Shape{2});
 
     bool keep_dims = true;
 
@@ -835,8 +721,8 @@ TEST(attributes, reduce_mean_op)
 {
     // ReduceMean derives visit_attributes from op::util::ArithmeticReductionKeepDims
     FactoryRegistry<Node>::get().register_factory<opset1::ReduceMean>();
-    auto data = make_shared<op::Parameter>(element::f32, Shape{3, 4, 5});
-    auto reduction_axes = make_shared<op::Parameter>(element::i64, Shape{2});
+    auto data = make_shared<op::v0::Parameter>(element::f32, Shape{3, 4, 5});
+    auto reduction_axes = make_shared<op::v0::Parameter>(element::i64, Shape{2});
 
     bool keep_dims = true;
 
@@ -851,8 +737,8 @@ TEST(attributes, reduce_min_op)
 {
     // ReduceMin derives visit_attributes from op::util::ArithmeticReductionKeepDims
     FactoryRegistry<Node>::get().register_factory<opset1::ReduceMin>();
-    auto data = make_shared<op::Parameter>(element::f32, Shape{3, 4, 5});
-    auto reduction_axes = make_shared<op::Parameter>(element::i64, Shape{2});
+    auto data = make_shared<op::v0::Parameter>(element::f32, Shape{3, 4, 5});
+    auto reduction_axes = make_shared<op::v0::Parameter>(element::i64, Shape{2});
 
     bool keep_dims = true;
 
@@ -867,8 +753,8 @@ TEST(attributes, reduce_prod_op)
 {
     // ReduceProd derives visit_attributes from op::util::ArithmeticReductionKeepDims
     FactoryRegistry<Node>::get().register_factory<opset1::ReduceProd>();
-    auto data = make_shared<op::Parameter>(element::f32, Shape{3, 4, 5});
-    auto reduction_axes = make_shared<op::Parameter>(element::i64, Shape{2});
+    auto data = make_shared<op::v0::Parameter>(element::f32, Shape{3, 4, 5});
+    auto reduction_axes = make_shared<op::v0::Parameter>(element::i64, Shape{2});
 
     bool keep_dims = true;
 
@@ -883,8 +769,8 @@ TEST(attributes, reduce_sum_op)
 {
     // ReduceSum derives visit_attributes from op::util::ArithmeticReductionKeepDims
     FactoryRegistry<Node>::get().register_factory<opset1::ReduceSum>();
-    auto data = make_shared<op::Parameter>(element::f32, Shape{3, 4, 5});
-    auto reduction_axes = make_shared<op::Parameter>(element::i64, Shape{2});
+    auto data = make_shared<op::v0::Parameter>(element::f32, Shape{3, 4, 5});
+    auto reduction_axes = make_shared<op::v0::Parameter>(element::i64, Shape{2});
 
     bool keep_dims = true;
 
@@ -898,7 +784,7 @@ TEST(attributes, reduce_sum_op)
 TEST(attributes, region_yolo_op)
 {
     FactoryRegistry<Node>::get().register_factory<opset1::RegionYolo>();
-    auto data = make_shared<op::Parameter>(element::i64, Shape{1, 255, 26, 26});
+    auto data = make_shared<op::v0::Parameter>(element::i64, Shape{1, 255, 26, 26});
 
     size_t num_coords = 4;
     size_t num_classes = 1;
@@ -927,8 +813,8 @@ TEST(attributes, region_yolo_op)
 TEST(attributes, reshape_op)
 {
     FactoryRegistry<Node>::get().register_factory<opset1::Reshape>();
-    auto data = make_shared<op::Parameter>(element::i32, Shape{2, 3, 4});
-    auto pattern = make_shared<op::Parameter>(element::i32, Shape{2});
+    auto data = make_shared<op::v0::Parameter>(element::i32, Shape{2, 3, 4});
+    auto pattern = make_shared<op::v0::Parameter>(element::i32, Shape{2});
 
     bool special_zero = true;
 
@@ -942,8 +828,8 @@ TEST(attributes, reshape_op)
 TEST(attributes, reverse_op_enum_mode)
 {
     FactoryRegistry<Node>::get().register_factory<opset1::Reverse>();
-    auto data = make_shared<op::Parameter>(element::i32, Shape{200});
-    auto reversed_axes = make_shared<op::Parameter>(element::i32, Shape{200});
+    auto data = make_shared<op::v0::Parameter>(element::i32, Shape{200});
+    auto reversed_axes = make_shared<op::v0::Parameter>(element::i32, Shape{200});
 
     auto reverse = make_shared<opset1::Reverse>(data, reversed_axes, opset1::Reverse::Mode::INDEX);
     NodeBuilder builder(reverse);
@@ -955,8 +841,8 @@ TEST(attributes, reverse_op_enum_mode)
 TEST(attributes, reverse_op_string_mode)
 {
     FactoryRegistry<Node>::get().register_factory<opset1::Reverse>();
-    auto data = make_shared<op::Parameter>(element::i32, Shape{200});
-    auto reversed_axes = make_shared<op::Parameter>(element::i32, Shape{200});
+    auto data = make_shared<op::v0::Parameter>(element::i32, Shape{200});
+    auto reversed_axes = make_shared<op::v0::Parameter>(element::i32, Shape{200});
 
     std::string mode = "index";
 
@@ -970,8 +856,8 @@ TEST(attributes, reverse_op_string_mode)
 TEST(attributes, reverse_sequence_op)
 {
     FactoryRegistry<Node>::get().register_factory<opset1::ReverseSequence>();
-    auto data = make_shared<op::Parameter>(element::i32, Shape{2, 3, 4, 2});
-    auto seq_indices = make_shared<op::Parameter>(element::i32, Shape{4});
+    auto data = make_shared<op::v0::Parameter>(element::i32, Shape{2, 3, 4, 2});
+    auto seq_indices = make_shared<op::v0::Parameter>(element::i32, Shape{4});
 
     auto batch_axis = 2;
     auto seq_axis = 1;
@@ -990,10 +876,10 @@ TEST(attributes, reverse_sequence_op)
 TEST(attributes, rnn_cell_op_custom_attributes)
 {
     FactoryRegistry<Node>::get().register_factory<opset1::RNNCell>();
-    auto X = make_shared<op::Parameter>(element::f32, Shape{2, 3});
-    auto H = make_shared<op::Parameter>(element::f32, Shape{2, 3});
-    auto W = make_shared<op::Parameter>(element::f32, Shape{3, 3});
-    auto R = make_shared<op::Parameter>(element::f32, Shape{3, 3});
+    auto X = make_shared<op::v0::Parameter>(element::f32, Shape{2, 3});
+    auto H = make_shared<op::v0::Parameter>(element::f32, Shape{2, 3});
+    auto W = make_shared<op::v0::Parameter>(element::f32, Shape{3, 3});
+    auto R = make_shared<op::v0::Parameter>(element::f32, Shape{3, 3});
 
     const size_t hidden_size = 3;
     auto activations = std::vector<std::string>{"sigmoid", "tanh"};
@@ -1017,10 +903,10 @@ TEST(attributes, rnn_cell_op_custom_attributes)
 TEST(attributes, rnn_cell_op_default_attributes)
 {
     FactoryRegistry<Node>::get().register_factory<opset1::RNNCell>();
-    auto X = make_shared<op::Parameter>(element::f32, Shape{2, 3});
-    auto H = make_shared<op::Parameter>(element::f32, Shape{2, 3});
-    auto W = make_shared<op::Parameter>(element::f32, Shape{3, 3});
-    auto R = make_shared<op::Parameter>(element::f32, Shape{3, 3});
+    auto X = make_shared<op::v0::Parameter>(element::f32, Shape{2, 3});
+    auto H = make_shared<op::v0::Parameter>(element::f32, Shape{2, 3});
+    auto W = make_shared<op::v0::Parameter>(element::f32, Shape{3, 3});
+    auto R = make_shared<op::v0::Parameter>(element::f32, Shape{3, 3});
 
     const size_t hidden_size = 3;
 
@@ -1039,7 +925,7 @@ TEST(attributes, rnn_cell_op_default_attributes)
 TEST(attributes, elu_op)
 {
     FactoryRegistry<Node>::get().register_factory<opset1::Elu>();
-    auto data = make_shared<op::Parameter>(element::f32, Shape{2, 4});
+    auto data = make_shared<op::v0::Parameter>(element::f32, Shape{2, 4});
 
     double alpha = 0.1;
 
@@ -1053,16 +939,16 @@ TEST(attributes, elu_op)
 TEST(attributes, fake_quantize_op)
 {
     FactoryRegistry<Node>::get().register_factory<opset1::FakeQuantize>();
-    const auto data = make_shared<op::Parameter>(element::f32, Shape{1, 2, 3, 4});
-    const auto input_low = make_shared<op::Parameter>(element::f32, Shape{});
-    const auto input_high = make_shared<op::Parameter>(element::f32, Shape{});
-    const auto output_low = make_shared<op::Parameter>(element::f32, Shape{});
-    const auto output_high = make_shared<op::Parameter>(element::f32, Shape{});
+    const auto data = make_shared<op::v0::Parameter>(element::f32, Shape{1, 2, 3, 4});
+    const auto input_low = make_shared<op::v0::Parameter>(element::f32, Shape{});
+    const auto input_high = make_shared<op::v0::Parameter>(element::f32, Shape{});
+    const auto output_low = make_shared<op::v0::Parameter>(element::f32, Shape{});
+    const auto output_high = make_shared<op::v0::Parameter>(element::f32, Shape{});
 
     auto levels = 5;
     auto auto_broadcast = op::AutoBroadcastType::NUMPY;
 
-    const auto fake_quantize = make_shared<op::FakeQuantize>(
+    const auto fake_quantize = make_shared<op::v0::FakeQuantize>(
         data, input_low, input_high, output_low, output_high, levels, auto_broadcast);
     NodeBuilder builder(fake_quantize);
     auto g_fake_quantize = as_type_ptr<opset1::FakeQuantize>(builder.create());
@@ -1074,8 +960,8 @@ TEST(attributes, fake_quantize_op)
 TEST(attributes, broadcast_v3)
 {
     FactoryRegistry<Node>::get().register_factory<opset3::Broadcast>();
-    const auto arg = make_shared<op::Parameter>(element::i64, Shape{1, 3, 1});
-    const auto shape = make_shared<op::Parameter>(element::i64, Shape{3});
+    const auto arg = make_shared<op::v0::Parameter>(element::i64, Shape{1, 3, 1});
+    const auto shape = make_shared<op::v0::Parameter>(element::i64, Shape{3});
     const auto broadcast_spec = op::BroadcastType::BIDIRECTIONAL;
 
     const auto broadcast_v3 = make_shared<op::v3::Broadcast>(arg, shape, broadcast_spec);
@@ -1088,7 +974,7 @@ TEST(attributes, broadcast_v3)
 TEST(attributes, grn_op)
 {
     FactoryRegistry<Node>::get().register_factory<opset1::GRN>();
-    auto data = make_shared<op::Parameter>(element::f32, Shape{2, 3, 4, 5});
+    auto data = make_shared<op::v0::Parameter>(element::f32, Shape{2, 3, 4, 5});
 
     float bias = 1.25f;
 
@@ -1102,8 +988,8 @@ TEST(attributes, grn_op)
 TEST(attributes, group_conv_op)
 {
     FactoryRegistry<Node>::get().register_factory<opset1::GroupConvolution>();
-    auto data = make_shared<op::Parameter>(element::f32, Shape{1, 12, 224, 224});
-    auto filters = make_shared<op::Parameter>(element::f32, Shape{4, 1, 3, 5, 5});
+    auto data = make_shared<op::v0::Parameter>(element::f32, Shape{1, 12, 224, 224});
+    auto filters = make_shared<op::v0::Parameter>(element::f32, Shape{4, 1, 3, 5, 5});
     auto strides = Strides{1, 1};
     auto pads_begin = CoordinateDiff{1, 2};
     auto pads_end = CoordinateDiff{1, 2};
@@ -1122,9 +1008,9 @@ TEST(attributes, group_conv_op)
 TEST(attributes, group_conv_backprop_data_op)
 {
     FactoryRegistry<Node>::get().register_factory<opset1::GroupConvolutionBackpropData>();
-    const auto data = make_shared<op::Parameter>(element::f32, Shape{1, 20, 224, 224});
-    const auto filter = make_shared<op::Parameter>(element::f32, Shape{4, 5, 2, 3, 3});
-    const auto output_shape = make_shared<op::Parameter>(element::f32, Shape{1, 8, 447, 447});
+    const auto data = make_shared<op::v0::Parameter>(element::f32, Shape{1, 20, 224, 224});
+    const auto filter = make_shared<op::v0::Parameter>(element::f32, Shape{4, 5, 2, 3, 3});
+    const auto output_shape = make_shared<op::v0::Parameter>(element::f32, Shape{1, 8, 447, 447});
 
     const auto strides = Strides{2, 1};
     const auto pads_begin = CoordinateDiff{3, 4};
@@ -1156,8 +1042,8 @@ TEST(attributes, group_conv_backprop_data_op)
 TEST(attributes, lrn_op)
 {
     FactoryRegistry<Node>::get().register_factory<opset1::LRN>();
-    const auto arg = make_shared<op::Parameter>(element::f32, Shape{1, 2, 3, 4});
-    const auto axes = make_shared<op::Parameter>(element::i32, Shape{2});
+    const auto arg = make_shared<op::v0::Parameter>(element::f32, Shape{1, 2, 3, 4});
+    const auto axes = make_shared<op::v0::Parameter>(element::i32, Shape{2});
 
     const double alpha = 1.1;
     const double beta = 2.2;
@@ -1177,12 +1063,12 @@ TEST(attributes, lrn_op)
 TEST(attributes, lstm_cell_op)
 {
     FactoryRegistry<Node>::get().register_factory<opset1::LSTMCell>();
-    auto X = make_shared<op::Parameter>(element::f32, Shape{2, 3});
-    auto H = make_shared<op::Parameter>(element::f32, Shape{2, 3});
-    auto W = make_shared<op::Parameter>(element::f32, Shape{12, 3});
-    auto R = make_shared<op::Parameter>(element::f32, Shape{12, 3});
-    const auto initial_hidden_state = make_shared<op::Parameter>(element::f32, Shape{2, 3});
-    const auto initial_cell_state = make_shared<op::Parameter>(element::f32, Shape{2, 3});
+    auto X = make_shared<op::v0::Parameter>(element::f32, Shape{2, 3});
+    auto H = make_shared<op::v0::Parameter>(element::f32, Shape{2, 3});
+    auto W = make_shared<op::v0::Parameter>(element::f32, Shape{12, 3});
+    auto R = make_shared<op::v0::Parameter>(element::f32, Shape{12, 3});
+    const auto initial_hidden_state = make_shared<op::v0::Parameter>(element::f32, Shape{2, 3});
+    const auto initial_cell_state = make_shared<op::v0::Parameter>(element::f32, Shape{2, 3});
 
     const auto hidden_size = 3;
     const auto weights_format = op::LSTMWeightsFormat::ICOF;
@@ -1219,16 +1105,16 @@ TEST(attributes, lstm_cell_op)
 TEST(attributes, lstm_sequence_op)
 {
     FactoryRegistry<Node>::get().register_factory<opset1::LSTMSequence>();
-    const auto X = make_shared<op::Parameter>(element::f32, Shape{1, 2, 4});
-    const auto initial_hidden_state = make_shared<op::Parameter>(element::f32, Shape{1, 2, 3});
-    const auto initial_cell_state = make_shared<op::Parameter>(element::f32, Shape{1, 2, 3});
-    const auto sequence_lengths = make_shared<op::Parameter>(element::i32, Shape{2});
-    const auto W = make_shared<op::Parameter>(element::f32, Shape{1, 12, 4});
-    const auto R = make_shared<op::Parameter>(element::f32, Shape{1, 12, 3});
-    const auto B = make_shared<op::Parameter>(element::f32, Shape{1, 12});
+    const auto X = make_shared<op::v0::Parameter>(element::f32, Shape{1, 2, 4});
+    const auto initial_hidden_state = make_shared<op::v0::Parameter>(element::f32, Shape{1, 2, 3});
+    const auto initial_cell_state = make_shared<op::v0::Parameter>(element::f32, Shape{1, 2, 3});
+    const auto sequence_lengths = make_shared<op::v0::Parameter>(element::i32, Shape{2});
+    const auto W = make_shared<op::v0::Parameter>(element::f32, Shape{1, 12, 4});
+    const auto R = make_shared<op::v0::Parameter>(element::f32, Shape{1, 12, 3});
+    const auto B = make_shared<op::v0::Parameter>(element::f32, Shape{1, 12});
 
     const auto hidden_size = 3;
-    const auto lstm_direction = op::LSTMSequence::direction::FORWARD;
+    const auto lstm_direction = op::v0::LSTMSequence::direction::FORWARD;
     const auto weights_format = op::LSTMWeightsFormat::ICOF;
     const std::vector<float> activations_alpha = {1, 2, 3};
     const std::vector<float> activations_beta = {4, 5, 6};
@@ -1267,7 +1153,7 @@ TEST(attributes, lstm_sequence_op)
 TEST(attributes, shuffle_channels_op)
 {
     FactoryRegistry<Node>::get().register_factory<opset1::ShuffleChannels>();
-    auto data = make_shared<op::Parameter>(element::i32, Shape{200});
+    auto data = make_shared<op::v0::Parameter>(element::i32, Shape{200});
     auto axis = 0;
     auto groups = 2;
     auto shuffle_channels = make_shared<opset1::ShuffleChannels>(data, axis, groups);
@@ -1275,13 +1161,13 @@ TEST(attributes, shuffle_channels_op)
     auto g_shuffle_channels = as_type_ptr<opset1::ShuffleChannels>(builder.create());
 
     EXPECT_EQ(g_shuffle_channels->get_axis(), shuffle_channels->get_axis());
-    EXPECT_EQ(g_shuffle_channels->get_groups(), shuffle_channels->get_groups());
+    EXPECT_EQ(g_shuffle_channels->get_group(), shuffle_channels->get_group());
 }
 
 TEST(attributes, softmax_op)
 {
     FactoryRegistry<Node>::get().register_factory<opset1::Softmax>();
-    auto data = make_shared<op::Parameter>(element::i32, Shape{200});
+    auto data = make_shared<op::v0::Parameter>(element::i32, Shape{200});
     auto axis = 0;
     auto softmax = make_shared<opset1::Softmax>(data, axis);
     NodeBuilder builder(softmax);
@@ -1293,7 +1179,7 @@ TEST(attributes, softmax_op)
 TEST(attributes, space_to_depth_op)
 {
     FactoryRegistry<Node>::get().register_factory<opset1::SpaceToDepth>();
-    auto data = make_shared<op::Parameter>(element::i32, Shape{2, 3, 50, 50});
+    auto data = make_shared<op::v0::Parameter>(element::i32, Shape{2, 3, 50, 50});
     auto block_size = 2;
     auto mode = opset1::SpaceToDepth::SpaceToDepthMode::BLOCKS_FIRST;
     auto space_to_depth = make_shared<opset1::SpaceToDepth>(data, mode, block_size);
@@ -1307,8 +1193,8 @@ TEST(attributes, space_to_depth_op)
 TEST(attributes, split_op)
 {
     FactoryRegistry<Node>::get().register_factory<opset1::Split>();
-    auto data = make_shared<op::Parameter>(element::i32, Shape{200});
-    auto axis = make_shared<op::Parameter>(element::i32, Shape{});
+    auto data = make_shared<op::v0::Parameter>(element::i32, Shape{200});
+    auto axis = make_shared<op::v0::Parameter>(element::i32, Shape{});
     auto num_splits = 2;
     auto split = make_shared<opset1::Split>(data, axis, num_splits);
     NodeBuilder builder(split);
@@ -1320,8 +1206,8 @@ TEST(attributes, split_op)
 TEST(attributes, squared_difference_op)
 {
     FactoryRegistry<Node>::get().register_factory<opset1::SquaredDifference>();
-    auto x1 = make_shared<op::Parameter>(element::i32, Shape{200});
-    auto x2 = make_shared<op::Parameter>(element::i32, Shape{200});
+    auto x1 = make_shared<op::v0::Parameter>(element::i32, Shape{200});
+    auto x2 = make_shared<op::v0::Parameter>(element::i32, Shape{200});
     auto auto_broadcast = op::AutoBroadcastType::NUMPY;
     auto squared_difference = make_shared<opset1::SquaredDifference>(x1, x2, auto_broadcast);
     NodeBuilder builder(squared_difference);
@@ -1333,10 +1219,10 @@ TEST(attributes, squared_difference_op)
 TEST(attributes, strided_slice_op)
 {
     FactoryRegistry<Node>::get().register_factory<opset1::StridedSlice>();
-    auto data = make_shared<op::Parameter>(element::i32, Shape{2, 3, 4, 5});
-    auto begin = make_shared<op::Parameter>(element::i32, Shape{2});
-    auto end = make_shared<op::Parameter>(element::i32, Shape{2});
-    auto stride = make_shared<op::Parameter>(element::i32, Shape{2});
+    auto data = make_shared<op::v0::Parameter>(element::i32, Shape{2, 3, 4, 5});
+    auto begin = make_shared<op::v0::Parameter>(element::i32, Shape{2});
+    auto end = make_shared<op::v0::Parameter>(element::i32, Shape{2});
+    auto stride = make_shared<op::v0::Parameter>(element::i32, Shape{2});
 
     auto begin_mask = std::vector<int64_t>{0, 0};
     auto end_mask = std::vector<int64_t>{0, 0};
@@ -1366,12 +1252,12 @@ TEST(attributes, strided_slice_op)
 TEST(attributes, topk_op)
 {
     FactoryRegistry<Node>::get().register_factory<opset1::TopK>();
-    auto data = make_shared<op::Parameter>(element::i32, Shape{2, 3, 4, 5});
-    auto k = make_shared<op::Parameter>(element::i32, Shape{});
+    auto data = make_shared<op::v0::Parameter>(element::i32, Shape{2, 3, 4, 5});
+    auto k = make_shared<op::v0::Parameter>(element::i32, Shape{});
 
     auto axis = 0;
-    auto mode = opset1::TopK::Mode::MAX;
-    auto sort_type = opset1::TopK::SortType::SORT_VALUES;
+    auto mode = opset1::TopK::Mode::max;
+    auto sort_type = opset1::TopK::SortType::value;
 
     auto topk = make_shared<opset1::TopK>(data, k, axis, mode, sort_type);
     NodeBuilder builder(topk);
@@ -1385,8 +1271,8 @@ TEST(attributes, topk_op)
 TEST(attributes, logical_xor_op)
 {
     FactoryRegistry<Node>::get().register_factory<opset1::LogicalXor>();
-    auto x1 = make_shared<op::Parameter>(element::boolean, Shape{200});
-    auto x2 = make_shared<op::Parameter>(element::boolean, Shape{200});
+    auto x1 = make_shared<op::v0::Parameter>(element::boolean, Shape{200});
+    auto x2 = make_shared<op::v0::Parameter>(element::boolean, Shape{200});
 
     auto auto_broadcast = op::AutoBroadcastType::NUMPY;
 
@@ -1400,7 +1286,7 @@ TEST(attributes, logical_xor_op)
 TEST(attributes, extractimagepatches_op)
 {
     FactoryRegistry<Node>::get().register_factory<opset3::ExtractImagePatches>();
-    auto data = make_shared<op::Parameter>(element::i32, Shape{64, 3, 10, 10});
+    auto data = make_shared<op::v0::Parameter>(element::i32, Shape{64, 3, 10, 10});
 
     auto sizes = Shape{3, 3};
     auto strides = Strides{5, 5};
@@ -1421,7 +1307,7 @@ TEST(attributes, extractimagepatches_op)
 TEST(attributes, mvn_op)
 {
     FactoryRegistry<Node>::get().register_factory<opset3::MVN>();
-    const auto data = make_shared<op::Parameter>(element::i32, Shape{2, 3, 4, 5});
+    const auto data = make_shared<op::v0::Parameter>(element::i32, Shape{2, 3, 4, 5});
 
     const auto axes = AxisSet{0, 1};
 
@@ -1439,7 +1325,7 @@ TEST(attributes, mvn_op)
 TEST(attributes, reorg_yolo_op)
 {
     FactoryRegistry<Node>::get().register_factory<opset3::ReorgYolo>();
-    const auto data = make_shared<op::Parameter>(element::i32, Shape{2, 3, 4, 5});
+    const auto data = make_shared<op::v0::Parameter>(element::i32, Shape{2, 3, 4, 5});
 
     const auto op = make_shared<opset3::ReorgYolo>(data, Strides{2});
     NodeBuilder builder(op);
@@ -1451,8 +1337,8 @@ TEST(attributes, reorg_yolo_op)
 TEST(attributes, roi_pooling_op)
 {
     FactoryRegistry<Node>::get().register_factory<opset3::ROIPooling>();
-    const auto data = make_shared<op::Parameter>(element::i32, Shape{2, 3, 4, 5});
-    const auto coords = make_shared<op::Parameter>(element::i32, Shape{2, 3});
+    const auto data = make_shared<op::v0::Parameter>(element::i32, Shape{2, 3, 4, 5});
+    const auto coords = make_shared<op::v0::Parameter>(element::i32, Shape{2, 3});
 
     const auto op = make_shared<opset3::ROIPooling>(data, coords, Shape{5, 5}, 0.123, "Bilinear");
     NodeBuilder builder(op);
@@ -1471,8 +1357,8 @@ TEST(attributes, constant_op)
     auto g_k = as_type_ptr<op::v0::Constant>(builder.create());
     g_k->validate_and_infer_types();
     ASSERT_TRUE(g_k);
-    EXPECT_EQ(k->get_element_type(), g_k->get_element_type());
-    EXPECT_EQ(k->get_shape(), g_k->get_shape());
+    EXPECT_EQ(k->get_output_element_type(0), g_k->get_output_element_type(0));
+    EXPECT_EQ(k->get_output_shape(0), g_k->get_output_shape(0));
     vector<float> g_data = g_k->get_vector<float>();
     EXPECT_EQ(data, g_data);
 }
@@ -1480,8 +1366,8 @@ TEST(attributes, constant_op)
 TEST(attributes, bucketize_v3_op_default_attributes)
 {
     FactoryRegistry<Node>::get().register_factory<opset3::Bucketize>();
-    auto data = make_shared<op::Parameter>(element::f32, Shape{2, 3, 4});
-    auto buckets = make_shared<op::Parameter>(element::f32, Shape{5});
+    auto data = make_shared<op::v0::Parameter>(element::f32, Shape{2, 3, 4});
+    auto buckets = make_shared<op::v0::Parameter>(element::f32, Shape{5});
     auto bucketize = make_shared<opset3::Bucketize>(data, buckets);
     NodeBuilder builder(bucketize);
 
@@ -1494,8 +1380,8 @@ TEST(attributes, bucketize_v3_op_default_attributes)
 TEST(attributes, bucketize_v3_op_custom_attributes)
 {
     FactoryRegistry<Node>::get().register_factory<opset3::Bucketize>();
-    auto data = make_shared<op::Parameter>(element::f32, Shape{2, 3, 4});
-    auto buckets = make_shared<op::Parameter>(element::f32, Shape{5});
+    auto data = make_shared<op::v0::Parameter>(element::f32, Shape{2, 3, 4});
+    auto buckets = make_shared<op::v0::Parameter>(element::f32, Shape{5});
     element::Type output_type = element::i32;
     bool with_right_bound = false;
 
@@ -1513,9 +1399,9 @@ TEST(attributes, cum_sum_op_default_attributes)
     FactoryRegistry<Node>::get().register_factory<opset3::CumSum>();
 
     Shape shape{1, 4};
-    auto A = make_shared<op::Parameter>(element::f32, shape);
-    auto axis = make_shared<op::Parameter>(element::i32, Shape{1});
-    auto cs = make_shared<op::CumSum>(A, axis);
+    auto A = make_shared<op::v0::Parameter>(element::f32, shape);
+    auto axis = make_shared<op::v0::Parameter>(element::i32, Shape{1});
+    auto cs = make_shared<op::v0::CumSum>(A, axis);
 
     NodeBuilder builder(cs);
     auto g_cs = as_type_ptr<opset3::CumSum>(builder.create());
@@ -1529,11 +1415,11 @@ TEST(attributes, cum_sum_op_custom_attributes)
     FactoryRegistry<Node>::get().register_factory<opset3::CumSum>();
 
     Shape shape{1, 4};
-    auto A = make_shared<op::Parameter>(element::f32, shape);
-    auto axis = make_shared<op::Parameter>(element::i32, Shape{1});
+    auto A = make_shared<op::v0::Parameter>(element::f32, shape);
+    auto axis = make_shared<op::v0::Parameter>(element::i32, Shape{1});
     bool exclusive = true;
     bool reverse = true;
-    auto cs = make_shared<op::CumSum>(A, axis, exclusive, reverse);
+    auto cs = make_shared<op::v0::CumSum>(A, axis, exclusive, reverse);
 
     NodeBuilder builder(cs);
     auto g_cs = as_type_ptr<opset3::CumSum>(builder.create());
@@ -1545,10 +1431,10 @@ TEST(attributes, cum_sum_op_custom_attributes)
 TEST(attributes, interpolate_op)
 {
     FactoryRegistry<Node>::get().register_factory<opset1::Interpolate>();
-    auto img = make_shared<op::Parameter>(element::f32, Shape{1, 3, 32, 32});
-    auto out_shape = make_shared<op::Parameter>(element::i32, Shape{2});
+    auto img = make_shared<op::v0::Parameter>(element::f32, Shape{1, 3, 32, 32});
+    auto out_shape = make_shared<op::v0::Parameter>(element::i32, Shape{2});
 
-    op::InterpolateAttrs interp_atrs;
+    op::v0::InterpolateAttrs interp_atrs;
     interp_atrs.axes = AxisSet{1, 2};
     interp_atrs.mode = "cubic";
     interp_atrs.align_corners = true;
@@ -1574,11 +1460,11 @@ TEST(attributes, interpolate_op)
 TEST(attributes, detection_output_op)
 {
     FactoryRegistry<Node>::get().register_factory<opset1::DetectionOutput>();
-    const auto box_logits = make_shared<op::Parameter>(element::f32, Shape{1, 3, 32, 32});
-    const auto class_preds = make_shared<op::Parameter>(element::f32, Shape{32});
-    const auto proposals = make_shared<op::Parameter>(element::f32, Shape{128, 2});
-    const auto aux_class_preds = make_shared<op::Parameter>(element::f32, Shape{16});
-    const auto aux_box_pred = make_shared<op::Parameter>(element::f32, Shape{32, 2});
+    const auto box_logits = make_shared<op::v0::Parameter>(element::f32, Shape{1, 3, 32, 32});
+    const auto class_preds = make_shared<op::v0::Parameter>(element::f32, Shape{32});
+    const auto proposals = make_shared<op::v0::Parameter>(element::f32, Shape{128, 2});
+    const auto aux_class_preds = make_shared<op::v0::Parameter>(element::f32, Shape{16});
+    const auto aux_box_pred = make_shared<op::v0::Parameter>(element::f32, Shape{32, 2});
 
     op::DetectionOutputAttrs attrs;
     attrs.num_classes = 32;
@@ -1627,8 +1513,8 @@ TEST(attributes, detection_output_op)
 TEST(attributes, prior_box_op)
 {
     FactoryRegistry<Node>::get().register_factory<opset1::PriorBox>();
-    const auto layer_shape = make_shared<op::Parameter>(element::i64, Shape{128, 128});
-    const auto image_shape = make_shared<op::Parameter>(element::i64, Shape{32, 32});
+    const auto layer_shape = make_shared<op::v0::Parameter>(element::i64, Shape{128, 128});
+    const auto image_shape = make_shared<op::v0::Parameter>(element::i64, Shape{32, 32});
 
     op::PriorBoxAttrs attrs;
     attrs.min_size = vector<float>{16.f, 32.f};
@@ -1668,8 +1554,8 @@ TEST(attributes, prior_box_op)
 TEST(attributes, prior_box_clustered_op)
 {
     FactoryRegistry<Node>::get().register_factory<opset1::PriorBoxClustered>();
-    const auto layer_shape = make_shared<op::Parameter>(element::i64, Shape{128, 128});
-    const auto image_shape = make_shared<op::Parameter>(element::i64, Shape{32, 32});
+    const auto layer_shape = make_shared<op::v0::Parameter>(element::i64, Shape{128, 128});
+    const auto image_shape = make_shared<op::v0::Parameter>(element::i64, Shape{32, 32});
 
     op::PriorBoxClusteredAttrs attrs;
     attrs.widths = vector<float>{128.f, 512.f, 4096.f};
@@ -1699,9 +1585,10 @@ TEST(attributes, prior_box_clustered_op)
 TEST(attributes, proposal_op)
 {
     FactoryRegistry<Node>::get().register_factory<opset1::Proposal>();
-    const auto class_probs = make_shared<op::Parameter>(element::i64, Shape{1024, 3, 128, 128});
-    const auto class_logits = make_shared<op::Parameter>(element::i64, Shape{1024, 3, 128, 128});
-    const auto image_shape = make_shared<op::Parameter>(element::i64, Shape{4});
+    const auto class_probs = make_shared<op::v0::Parameter>(element::i64, Shape{1024, 3, 128, 128});
+    const auto class_logits =
+        make_shared<op::v0::Parameter>(element::i64, Shape{1024, 3, 128, 128});
+    const auto image_shape = make_shared<op::v0::Parameter>(element::i64, Shape{4});
 
     op::ProposalAttrs attrs;
     attrs.base_size = 224;

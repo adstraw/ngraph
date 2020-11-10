@@ -20,7 +20,7 @@ from typing import Callable, Iterable, List, Optional, Set, Union
 import numpy as np
 
 from ngraph.impl import Node, Shape
-from ngraph.impl.op import Constant, GetOutputElement, Parameter
+from ngraph.impl.op import Constant, Parameter
 from ngraph.utils.decorators import binary_op, nameable_op, unary_op
 from ngraph.utils.input_validation import (
     assert_list_of_ints,
@@ -2478,12 +2478,6 @@ def roi_align(
 
 
 @nameable_op
-def get_output_element(data: NodeInput, index: int, name: Optional[str] = None) -> Node:
-    """Return the n-th element of the input tuple."""
-    return GetOutputElement(as_node(data), index)
-
-
-@nameable_op
 def matmul(
     data_a: NodeInput,
     data_b: NodeInput,
@@ -2629,25 +2623,6 @@ def result(data: NodeInput, name: Optional[str] = None) -> Node:
     :return: Result node
     """
     return _get_node_factory().create("Result", [data])
-
-
-@nameable_op
-def scatter_nd_update(
-    data: NodeInput, indices: NodeInput, updates: NodeInput, name: str = None
-) -> Node:
-    """Return a node which produces a ScatterNDUpdate operation.
-
-    ScatterNDUpdate creates a copy of the first input tensor
-    with updated elements specified with second and third input tensors.
-
-    :param data:    The input tensor to be updated.
-    :param indices: The tensor with indexes which will be updated.
-    :param updates: The tensor with update values.
-    :param name:    Optional name for output node.
-    :return: ScatterNDUpdate node
-    """
-    node_inputs = as_nodes(data, indices, updates)
-    return _get_node_factory().create("ScatterNDUpdate", node_inputs)
 
 
 @nameable_op

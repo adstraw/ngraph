@@ -41,9 +41,9 @@ static string s_manifest = "${MANIFEST}";
 NGRAPH_TEST(${BACKEND_NAME}, equal)
 {
     Shape shape{2, 2, 2};
-    auto A = make_shared<op::Parameter>(element::f32, shape);
-    auto B = make_shared<op::Parameter>(element::f32, shape);
-    auto f = make_shared<Function>(make_shared<op::Equal>(A, B), ParameterVector{A, B});
+    auto A = make_shared<op::v0::Parameter>(element::f32, shape);
+    auto B = make_shared<op::v0::Parameter>(element::f32, shape);
+    auto f = make_shared<Function>(make_shared<op::v1::Equal>(A, B), ParameterVector{A, B});
 
     auto backend = runtime::Backend::create("${BACKEND_NAME}");
 
@@ -62,9 +62,9 @@ NGRAPH_TEST(${BACKEND_NAME}, equal)
 NGRAPH_TEST(${BACKEND_NAME}, notequal)
 {
     Shape shape{2, 2, 2};
-    auto A = make_shared<op::Parameter>(element::f32, shape);
-    auto B = make_shared<op::Parameter>(element::f32, shape);
-    auto f = make_shared<Function>(make_shared<op::NotEqual>(A, B), ParameterVector{A, B});
+    auto A = make_shared<op::v0::Parameter>(element::f32, shape);
+    auto B = make_shared<op::v0::Parameter>(element::f32, shape);
+    auto f = make_shared<Function>(make_shared<op::v1::NotEqual>(A, B), ParameterVector{A, B});
 
     auto backend = runtime::Backend::create("${BACKEND_NAME}");
 
@@ -83,9 +83,9 @@ NGRAPH_TEST(${BACKEND_NAME}, notequal)
 NGRAPH_TEST(${BACKEND_NAME}, greater)
 {
     Shape shape{2, 2, 2};
-    auto A = make_shared<op::Parameter>(element::f32, shape);
-    auto B = make_shared<op::Parameter>(element::f32, shape);
-    auto f = make_shared<Function>(make_shared<op::Greater>(A, B), ParameterVector{A, B});
+    auto A = make_shared<op::v0::Parameter>(element::f32, shape);
+    auto B = make_shared<op::v0::Parameter>(element::f32, shape);
+    auto f = make_shared<Function>(make_shared<op::v1::Greater>(A, B), ParameterVector{A, B});
 
     auto backend = runtime::Backend::create("${BACKEND_NAME}");
 
@@ -104,9 +104,9 @@ NGRAPH_TEST(${BACKEND_NAME}, greater)
 NGRAPH_TEST(${BACKEND_NAME}, greater_int64)
 {
     Shape shape{2, 2, 2};
-    auto A = make_shared<op::Parameter>(element::i64, shape);
-    auto B = make_shared<op::Parameter>(element::i64, shape);
-    auto f = make_shared<Function>(make_shared<op::Greater>(A, B), ParameterVector{A, B});
+    auto A = make_shared<op::v0::Parameter>(element::i64, shape);
+    auto B = make_shared<op::v0::Parameter>(element::i64, shape);
+    auto f = make_shared<Function>(make_shared<op::v1::Greater>(A, B), ParameterVector{A, B});
 
     auto backend = runtime::Backend::create("${BACKEND_NAME}");
 
@@ -125,9 +125,9 @@ NGRAPH_TEST(${BACKEND_NAME}, greater_int64)
 NGRAPH_TEST(${BACKEND_NAME}, greatereq)
 {
     Shape shape{2, 2, 2};
-    auto A = make_shared<op::Parameter>(element::f32, shape);
-    auto B = make_shared<op::Parameter>(element::f32, shape);
-    auto f = make_shared<Function>(make_shared<op::GreaterEq>(A, B), ParameterVector{A, B});
+    auto A = make_shared<op::v0::Parameter>(element::f32, shape);
+    auto B = make_shared<op::v0::Parameter>(element::f32, shape);
+    auto f = make_shared<Function>(make_shared<op::v1::GreaterEqual>(A, B), ParameterVector{A, B});
 
     auto backend = runtime::Backend::create("${BACKEND_NAME}");
 
@@ -146,9 +146,9 @@ NGRAPH_TEST(${BACKEND_NAME}, greatereq)
 NGRAPH_TEST(${BACKEND_NAME}, less)
 {
     Shape shape{2, 2, 2};
-    auto A = make_shared<op::Parameter>(element::f32, shape);
-    auto B = make_shared<op::Parameter>(element::f32, shape);
-    auto f = make_shared<Function>(make_shared<op::Less>(A, B), ParameterVector{A, B});
+    auto A = make_shared<op::v0::Parameter>(element::f32, shape);
+    auto B = make_shared<op::v0::Parameter>(element::f32, shape);
+    auto f = make_shared<Function>(make_shared<op::v1::Less>(A, B), ParameterVector{A, B});
 
     auto backend = runtime::Backend::create("${BACKEND_NAME}");
 
@@ -167,9 +167,9 @@ NGRAPH_TEST(${BACKEND_NAME}, less)
 NGRAPH_TEST(${BACKEND_NAME}, lesseq)
 {
     Shape shape{2, 2, 2};
-    auto A = make_shared<op::Parameter>(element::f32, shape);
-    auto B = make_shared<op::Parameter>(element::f32, shape);
-    auto f = make_shared<Function>(make_shared<op::LessEq>(A, B), ParameterVector{A, B});
+    auto A = make_shared<op::v0::Parameter>(element::f32, shape);
+    auto B = make_shared<op::v0::Parameter>(element::f32, shape);
+    auto f = make_shared<Function>(make_shared<op::v1::LessEqual>(A, B), ParameterVector{A, B});
 
     auto backend = runtime::Backend::create("${BACKEND_NAME}");
 
@@ -188,9 +188,9 @@ NGRAPH_TEST(${BACKEND_NAME}, lesseq)
 NGRAPH_TEST(${BACKEND_NAME}, lesseq_int32)
 {
     Shape shape{2, 2};
-    auto A = make_shared<op::Parameter>(element::i32, shape);
-    auto B = make_shared<op::Parameter>(element::i32, shape);
-    auto f = make_shared<Function>(make_shared<op::LessEq>(A, B), ParameterVector{A, B});
+    auto A = make_shared<op::v0::Parameter>(element::i32, shape);
+    auto B = make_shared<op::v0::Parameter>(element::i32, shape);
+    auto f = make_shared<Function>(make_shared<op::v1::LessEqual>(A, B), ParameterVector{A, B});
 
     auto backend = runtime::Backend::create("${BACKEND_NAME}");
 
@@ -209,9 +209,9 @@ NGRAPH_TEST(${BACKEND_NAME}, lesseq_int32)
 NGRAPH_TEST(${BACKEND_NAME}, lesseq_bool)
 {
     Shape shape{2, 2, 2};
-    auto A = make_shared<op::Parameter>(element::boolean, shape);
-    auto B = make_shared<op::Parameter>(element::boolean, shape);
-    auto f = make_shared<Function>(make_shared<op::LessEq>(A, B), ParameterVector{A, B});
+    auto A = make_shared<op::v0::Parameter>(element::boolean, shape);
+    auto B = make_shared<op::v0::Parameter>(element::boolean, shape);
+    auto f = make_shared<Function>(make_shared<op::v1::LessEqual>(A, B), ParameterVector{A, B});
 
     auto backend = runtime::Backend::create("${BACKEND_NAME}");
 
@@ -229,4 +229,130 @@ NGRAPH_TEST(${BACKEND_NAME}, lesseq_bool)
     auto handle = backend->compile(f);
     handle->call_with_validate({result}, {a, b});
     EXPECT_EQ((vector<char>{0, 0, 0, 0, 0, 0, 0, 0}), read_vector<char>(result));
+}
+
+NGRAPH_TEST(${BACKEND_NAME}, less_unsigned_limit)
+{
+    Shape shape{};
+    auto A = make_shared<op::v0::Parameter>(element::u32, shape);
+    auto B = make_shared<op::v0::Parameter>(element::u32, shape);
+    auto f = make_shared<Function>(make_shared<op::v1::Less>(A, B), ParameterVector{A, B});
+
+    auto backend = runtime::Backend::create("${BACKEND_NAME}");
+
+    // Create some tensors for input/output
+    auto a = backend->create_tensor(element::u32, shape);
+    copy_data(a, vector<uint32_t>{numeric_limits<uint32_t>::max()});
+    auto b = backend->create_tensor(element::u32, shape);
+    copy_data(b, vector<uint32_t>{10});
+    auto result = backend->create_tensor(element::boolean, shape);
+
+    auto handle = backend->compile(f);
+    handle->call_with_validate({result}, {a, b});
+    EXPECT_EQ((vector<char>{0}), read_vector<char>(result));
+}
+
+NGRAPH_TEST(${BACKEND_NAME}, lesseq_unsigned_limit)
+{
+    Shape shape{};
+    auto A = make_shared<op::v0::Parameter>(element::u32, shape);
+    auto B = make_shared<op::v0::Parameter>(element::u32, shape);
+    auto f = make_shared<Function>(make_shared<op::v1::Less>(A, B), ParameterVector{A, B});
+
+    auto backend = runtime::Backend::create("${BACKEND_NAME}");
+
+    // Create some tensors for input/output
+    auto a = backend->create_tensor(element::u32, shape);
+    copy_data(a, vector<uint32_t>{numeric_limits<uint32_t>::max()});
+    auto b = backend->create_tensor(element::u32, shape);
+    copy_data(b, vector<uint32_t>{10});
+    auto result = backend->create_tensor(element::boolean, shape);
+
+    auto handle = backend->compile(f);
+    handle->call_with_validate({result}, {a, b});
+    EXPECT_EQ((vector<char>{0}), read_vector<char>(result));
+}
+
+NGRAPH_TEST(${BACKEND_NAME}, greater_unsigned_limit)
+{
+    Shape shape{};
+    auto A = make_shared<op::v0::Parameter>(element::u32, shape);
+    auto B = make_shared<op::v0::Parameter>(element::u32, shape);
+    auto f = make_shared<Function>(make_shared<op::v1::Greater>(A, B), ParameterVector{A, B});
+
+    auto backend = runtime::Backend::create("${BACKEND_NAME}");
+
+    // Create some tensors for input/output
+    auto a = backend->create_tensor(element::u32, shape);
+    copy_data(a, vector<uint32_t>{numeric_limits<uint32_t>::max()});
+    auto b = backend->create_tensor(element::u32, shape);
+    copy_data(b, vector<uint32_t>{10});
+    auto result = backend->create_tensor(element::boolean, shape);
+
+    auto handle = backend->compile(f);
+    handle->call_with_validate({result}, {a, b});
+    EXPECT_EQ((vector<char>{1}), read_vector<char>(result));
+}
+
+NGRAPH_TEST(${BACKEND_NAME}, greatereq_unsigned_limit)
+{
+    Shape shape{};
+    auto A = make_shared<op::v0::Parameter>(element::u32, shape);
+    auto B = make_shared<op::v0::Parameter>(element::u32, shape);
+    auto f = make_shared<Function>(make_shared<op::v1::GreaterEqual>(A, B), ParameterVector{A, B});
+
+    auto backend = runtime::Backend::create("${BACKEND_NAME}");
+
+    // Create some tensors for input/output
+    auto a = backend->create_tensor(element::u32, shape);
+    copy_data(a, vector<uint32_t>{numeric_limits<uint32_t>::max()});
+    auto b = backend->create_tensor(element::u32, shape);
+    copy_data(b, vector<uint32_t>{10});
+    auto result = backend->create_tensor(element::boolean, shape);
+
+    auto handle = backend->compile(f);
+    handle->call_with_validate({result}, {a, b});
+    EXPECT_EQ((vector<char>{1}), read_vector<char>(result));
+}
+
+NGRAPH_TEST(${BACKEND_NAME}, equal_unsigned_limit)
+{
+    Shape shape{};
+    auto A = make_shared<op::v0::Parameter>(element::u32, shape);
+    auto B = make_shared<op::v0::Parameter>(element::u32, shape);
+    auto f = make_shared<Function>(make_shared<op::v1::Equal>(A, B), ParameterVector{A, B});
+
+    auto backend = runtime::Backend::create("${BACKEND_NAME}");
+
+    // Create some tensors for input/output
+    auto a = backend->create_tensor(element::u32, shape);
+    copy_data(a, vector<uint32_t>{numeric_limits<uint32_t>::max()});
+    auto b = backend->create_tensor(element::u32, shape);
+    copy_data(b, vector<uint32_t>{numeric_limits<uint32_t>::max()});
+    auto result = backend->create_tensor(element::boolean, shape);
+
+    auto handle = backend->compile(f);
+    handle->call_with_validate({result}, {a, b});
+    EXPECT_EQ((vector<char>{1}), read_vector<char>(result));
+}
+
+NGRAPH_TEST(${BACKEND_NAME}, notequal_unsigned_limit)
+{
+    Shape shape{};
+    auto A = make_shared<op::v0::Parameter>(element::u32, shape);
+    auto B = make_shared<op::v0::Parameter>(element::u32, shape);
+    auto f = make_shared<Function>(make_shared<op::v1::NotEqual>(A, B), ParameterVector{A, B});
+
+    auto backend = runtime::Backend::create("${BACKEND_NAME}");
+
+    // Create some tensors for input/output
+    auto a = backend->create_tensor(element::u32, shape);
+    copy_data(a, vector<uint32_t>{numeric_limits<uint32_t>::max()});
+    auto b = backend->create_tensor(element::u32, shape);
+    copy_data(b, vector<uint32_t>{numeric_limits<uint32_t>::max()});
+    auto result = backend->create_tensor(element::boolean, shape);
+
+    auto handle = backend->compile(f);
+    handle->call_with_validate({result}, {a, b});
+    EXPECT_EQ((vector<char>{0}), read_vector<char>(result));
 }

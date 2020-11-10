@@ -100,7 +100,7 @@ NGRAPH_TEST(${BACKEND_NAME}, onnx_node_names_check)
         file_util::path_join(SERIALIZED_ZOO, "onnx/add_abc.prototxt"));
 
     // Filter out Add nodes from the function graph
-    std::vector<std::shared_ptr<Node>> additions;
+    NodeVector additions;
     auto ordered_ops = function->get_ordered_ops();
     std::copy_if(
         ordered_ops.begin(),
@@ -191,15 +191,15 @@ NGRAPH_TEST(${BACKEND_NAME}, onnx_model_add_abc_initializers)
 NGRAPH_TEST(${BACKEND_NAME}, onnx_model_override_op)
 {
     onnx_import::register_operator(
-        "FalseAdd", 1, "", [](const onnx_import::Node& node) -> NodeVector {
-            NodeVector ng_inputs{node.get_ng_inputs()};
-            return {std::make_shared<ngraph::op::Add>(ng_inputs.at(0), ng_inputs.at(1))};
+        "FalseAdd", 1, "", [](const onnx_import::Node& node) -> OutputVector {
+            OutputVector ng_inputs{node.get_ng_inputs()};
+            return {std::make_shared<ngraph::op::v1::Add>(ng_inputs.at(0), ng_inputs.at(1))};
         });
 
     onnx_import::register_operator(
-        "FalseAdd", 1, "", [](const onnx_import::Node& node) -> NodeVector {
-            NodeVector ng_inputs{node.get_ng_inputs()};
-            return {std::make_shared<ngraph::op::Subtract>(ng_inputs.at(0), ng_inputs.at(1))};
+        "FalseAdd", 1, "", [](const onnx_import::Node& node) -> OutputVector {
+            OutputVector ng_inputs{node.get_ng_inputs()};
+            return {std::make_shared<ngraph::op::v1::Subtract>(ng_inputs.at(0), ng_inputs.at(1))};
         });
 
     auto function = onnx_import::import_onnx_model(
@@ -253,9 +253,9 @@ NGRAPH_TEST(${BACKEND_NAME}, onnx_model_unsupported_op)
 NGRAPH_TEST(${BACKEND_NAME}, onnx_model_custom_op)
 {
     onnx_import::register_operator(
-        "AddQ", 1, "com.intel.ai", [](const onnx_import::Node& node) -> NodeVector {
-            NodeVector ng_inputs{node.get_ng_inputs()};
-            return {std::make_shared<ngraph::op::Add>(ng_inputs.at(0), ng_inputs.at(1))};
+        "AddQ", 1, "com.intel.ai", [](const onnx_import::Node& node) -> OutputVector {
+            OutputVector ng_inputs{node.get_ng_inputs()};
+            return {std::make_shared<ngraph::op::v1::Add>(ng_inputs.at(0), ng_inputs.at(1))};
         });
 
     auto function = onnx_import::import_onnx_model(
@@ -270,9 +270,9 @@ NGRAPH_TEST(${BACKEND_NAME}, onnx_model_custom_op)
 NGRAPH_TEST(${BACKEND_NAME}, onnx_model_custom_op_default_domain)
 {
     onnx_import::register_operator(
-        "AddQ", 1, "com.intel.ai", [](const onnx_import::Node& node) -> NodeVector {
-            NodeVector ng_inputs{node.get_ng_inputs()};
-            return {std::make_shared<ngraph::op::Add>(ng_inputs.at(0), ng_inputs.at(1))};
+        "AddQ", 1, "com.intel.ai", [](const onnx_import::Node& node) -> OutputVector {
+            OutputVector ng_inputs{node.get_ng_inputs()};
+            return {std::make_shared<ngraph::op::v1::Add>(ng_inputs.at(0), ng_inputs.at(1))};
         });
 
     auto function = onnx_import::import_onnx_model(
@@ -308,9 +308,9 @@ NGRAPH_TEST(${BACKEND_NAME}, onnx_is_op_supported)
 
     // Registered custom operator
     onnx_import::register_operator(
-        "AddQ", 1, "com.intel.ai", [](const onnx_import::Node& node) -> NodeVector {
-            NodeVector ng_inputs{node.get_ng_inputs()};
-            return {std::make_shared<ngraph::op::Add>(ng_inputs.at(0), ng_inputs.at(1))};
+        "AddQ", 1, "com.intel.ai", [](const onnx_import::Node& node) -> OutputVector {
+            OutputVector ng_inputs{node.get_ng_inputs()};
+            return {std::make_shared<ngraph::op::v1::Add>(ng_inputs.at(0), ng_inputs.at(1))};
         });
     EXPECT_TRUE(onnx_import::is_operator_supported("AddQ", 1, "com.intel.ai"));
 }
@@ -318,9 +318,9 @@ NGRAPH_TEST(${BACKEND_NAME}, onnx_is_op_supported)
 NGRAPH_TEST(${BACKEND_NAME}, onnx_model_missing_op_domain)
 {
     onnx_import::register_operator(
-        "CustomAdd", 1, "custom.op", [](const onnx_import::Node& node) -> NodeVector {
-            NodeVector ng_inputs{node.get_ng_inputs()};
-            return {std::make_shared<ngraph::op::Add>(ng_inputs.at(0), ng_inputs.at(1))};
+        "CustomAdd", 1, "custom.op", [](const onnx_import::Node& node) -> OutputVector {
+            OutputVector ng_inputs{node.get_ng_inputs()};
+            return {std::make_shared<ngraph::op::v1::Add>(ng_inputs.at(0), ng_inputs.at(1))};
         });
 
     EXPECT_TRUE(onnx_import::is_operator_supported("CustomAdd", 1, "custom.op"));
@@ -366,31 +366,34 @@ NGRAPH_TEST(${BACKEND_NAME}, onnx_model_op_in_unknown_domain)
 NGRAPH_TEST(${BACKEND_NAME}, onnx_model_missing_input)
 {
     onnx_import::register_operator(
-        "TestMissingInOut", 1, "com.intel.ai", [](const onnx_import::Node& node) -> NodeVector {
-            NodeVector ng_inputs{node.get_ng_inputs()};
-            std::shared_ptr<ngraph::Node> A = ng_inputs.at(0);
-            std::shared_ptr<ngraph::Node> B = ng_inputs.at(1);
-            std::shared_ptr<ngraph::Node> C = ng_inputs.at(2);
+        "TestMissingInOut", 1, "com.intel.ai", [](const onnx_import::Node& node) -> OutputVector {
+            OutputVector ng_inputs{node.get_ng_inputs()};
+            Output<ngraph::Node> A = ng_inputs.at(0);
+            Output<ngraph::Node> B = ng_inputs.at(1);
+            Output<ngraph::Node> C = ng_inputs.at(2);
 
             A = A * C;
-            if (!B->is_null())
+            if (B.get_node())
             {
                 B = B / C;
             }
 
             C = C + C;
-            return {A, B, C};
+            std::shared_ptr<ngraph::Node> a = A.get_node_shared_ptr();
+            std::shared_ptr<ngraph::Node> b = B.get_node_shared_ptr();
+            std::shared_ptr<ngraph::Node> c = C.get_node_shared_ptr();
+            return {a, b, c};
         });
 
     onnx_import::register_operator(
-        "TestMissingIn", 1, "com.intel.ai", [](const onnx_import::Node& node) -> NodeVector {
-            NodeVector ng_inputs{node.get_ng_inputs()};
-            std::shared_ptr<ngraph::Node> result = std::make_shared<ngraph::op::Constant>(
+        "TestMissingIn", 1, "com.intel.ai", [](const onnx_import::Node& node) -> OutputVector {
+            OutputVector ng_inputs{node.get_ng_inputs()};
+            std::shared_ptr<ngraph::Node> result = std::make_shared<ngraph::op::v0::Constant>(
                 element::f32, ngraph::Shape{2, 2}, std::vector<float>{1, 1, 1, 1});
 
             for (const auto& ng_input : ng_inputs)
             {
-                if (!ng_input->is_null())
+                if (!ng_input.get_node())
                 {
                     result = ng_input * result;
                 }
@@ -788,30 +791,6 @@ NGRAPH_TEST(${BACKEND_NAME}, onnx_model_softmax_axis_1)
          0.00587593, 0.04548053, 0.0346656,  0.02252594, 0.03742775, 0.04219705, 0.00173478,
          0.00571623, 0.2818174,  0.06557446, 0.00763582, 0.03321466, 0.01962049, 0.03930537,
          0.01254255, 0.01246025, 0.02449929, 0.02939305, 0.15432668, 0.12398617});
-
-    test_case.run(4);
-}
-
-NGRAPH_TEST(${BACKEND_NAME}, onnx_model_softmax_axis_2)
-{
-    auto function = onnx_import::import_onnx_model(
-        file_util::path_join(SERIALIZED_ZOO, "onnx/softmax_axis_2.prototxt"));
-
-    auto test_case = ngraph::test::NgraphTestCase(function, "${BACKEND_NAME}");
-    test_case.add_input<float>(SOFTMAX_INPUT);
-
-    test_case.add_expected_output<float>(
-        {0.80619486, 0.03075257, 0.1161086,  0.027393,   0.01955098, 0.07012682, 0.22670066,
-         0.18689779, 0.4614171,  0.05485763, 0.04486172, 0.72286838, 0.10286818, 0.07356265,
-         0.05583908, 0.01280724, 0.02448298, 0.08096658, 0.11509768, 0.76664552,
-
-         0.30399806, 0.1076406,  0.03371745, 0.0950595,  0.4595844,  0.13369873, 0.04866969,
-         0.19944906, 0.06332151, 0.55486101, 0.39101105, 0.19217177, 0.27755913, 0.10521588,
-         0.03404216, 0.01150354, 0.08279411, 0.03137732, 0.68902071, 0.18530432,
-
-         0.0402528,  0.31156222, 0.23747503, 0.1543129,  0.25639705, 0.10627912, 0.00436928,
-         0.01439711, 0.70979614, 0.16515835, 0.06798343, 0.2957175,  0.17468555, 0.34994439,
-         0.11166912, 0.03615172, 0.07108136, 0.08527994, 0.44775794, 0.35972905});
 
     test_case.run(4);
 }
@@ -1778,12 +1757,12 @@ NGRAPH_TEST(${BACKEND_NAME}, onnx_model_erf)
     inputs.emplace_back(test::NDArray<float, 2>{
         {-std::numeric_limits<float>::infinity(), std::numeric_limits<float>::infinity()},
         {-3.141592f, 0.0f},
-        {0.5f, 1.0f}}.get_vector());
+        {0.5f, 1.0f}}
+                            .get_vector());
 
-    const std::vector<float> expected_output = test::NDArray<float, 2>{
-        {-1.0f, 1.0f},
-        {-0.99999112f, 0.0f},
-        {0.52049988f, 0.84270079f}}.get_vector();
+    const std::vector<float> expected_output =
+        test::NDArray<float, 2>{{-1.0f, 1.0f}, {-0.99999112f, 0.0f}, {0.52049988f, 0.84270079f}}
+            .get_vector();
 
     auto test_case = ngraph::test::NgraphTestCase(function, "${BACKEND_NAME}");
     test_case.add_multiple_inputs(inputs);
@@ -1804,42 +1783,6 @@ NGRAPH_TEST(${BACKEND_NAME}, onnx_model_erf_int32)
     auto test_case = ngraph::test::NgraphTestCase(function, "${BACKEND_NAME}");
     test_case.add_multiple_inputs(inputs);
     test_case.add_expected_output(expected_output);
-    test_case.run();
-}
-
-NGRAPH_TEST(${BACKEND_NAME}, onnx_model_hardmax)
-{
-    auto hardmax_fn = onnx_import::import_onnx_model(
-        file_util::path_join(SERIALIZED_ZOO, "onnx/hardmax.prototxt"));
-
-    auto test_case = ngraph::test::NgraphTestCase(hardmax_fn, "${BACKEND_NAME}");
-    test_case.add_input<float>(
-        {-2.02458119f, 0.00126542f,  -0.58045743f, -0.75186814f, 0.9406899f,
-         -0.513188f,   0.85887463f,  1.61444086f,  0.23801147f,  -0.26816885f,
-         0.6597208f,   1.43889519f,  0.28798895f,  1.44769952f,  -1.99466756f,
-         0.41386644f,  0.69389555f,  1.46118255f,  -1.67628606f, 1.49697552f,
-
-         0.06337166f,  -1.15740783f, 0.8792142f,   -0.95352717f, -1.87895792f,
-         -0.74066102f, -0.27131459f, 0.2219685f,   0.31831001f,  0.52495901f,
-         0.60283089f,  0.60397976f,  0.92401468f,  0.29565101f,  -1.14443776f,
-         -1.07399045f, -0.92266259f, 0.24017731f,  -0.30105675f, 1.18513269f,
-
-         0.55494542f,  1.12119279f,  -0.43156474f, 0.15101668f,  -1.460439f,
-         0.96375129f,  1.10411785f,  -0.30272771f, -0.48855848f, 0.12103213f,
-         -0.71388492f, 1.38398178f,  0.21924434f,  0.93105052f,  -0.21074303f,
-         0.48213503f,  -1.37810638f, 8.99060285f,  0.54794592f,  -0.46820172f});
-
-    // values for hardmax with axis==2
-    test_case.add_expected_output<float>(
-        Shape{3, 4, 5}, {0.0f, 0.0f, 0.0f, 0.0f, 1.0f, 0.0f, 0.0f, 1.0f, 0.0f, 0.0f,
-                         0.0f, 0.0f, 0.0f, 1.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 1.0f,
-
-                         0.0f, 0.0f, 1.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 1.0f,
-                         0.0f, 0.0f, 1.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 1.0f,
-
-                         0.0f, 1.0f, 0.0f, 0.0f, 0.0f, 0.0f, 1.0f, 0.0f, 0.0f, 0.0f,
-                         0.0f, 1.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 1.0f, 0.0f, 0.0f});
-
     test_case.run();
 }
 

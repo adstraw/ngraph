@@ -105,6 +105,7 @@ namespace ngraph
                 /// \return The slicing strides.
                 const Strides& get_strides() const { return m_strides; }
                 void set_strides(const Strides& strides) { m_strides = strides; }
+
             protected:
                 virtual void generate_adjoints(autodiff::Adjoints& adjoints,
                                                const OutputVector& deltas) override;
@@ -114,6 +115,5 @@ namespace ngraph
                 Strides m_strides;
             };
         }
-        using v0::ReplaceSlice;
     }
 }

@@ -18,6 +18,14 @@
 #include <iostream>
 
 #ifdef NGRAPH_MLIR_ENABLE
+#include <mlir/Dialect/Affine/IR/AffineOps.h>
+#include <mlir/Dialect/Affine/Passes.h>
+#include <mlir/Dialect/LLVMIR/LLVMDialect.h>
+#include <mlir/Dialect/SCF/SCF.h>
+#include <mlir/Dialect/StandardOps/IR/Ops.h>
+#include <mlir/Dialect/Vector/VectorOps.h>
+#include <mlir/IR/MLIRContext.h>
+#include "contrib/mlir/core/ngraph_dialect/dialect.hpp"
 #include "contrib/mlir/utils.hpp"
 #endif
 #include "gtest/gtest.h"
@@ -26,7 +34,15 @@
 #include "ngraph/runtime/backend.hpp"
 #include "ngraph/runtime/backend_manager.hpp"
 
+#ifdef NGRAPH_UNIT_TEST_NUMPY_ENABLE
+#include <pybind11/embed.h>
+#endif
+
 using namespace std;
+
+#ifdef NGRAPH_UNIT_TEST_NUMPY_ENABLE
+namespace py = pybind11;
+#endif
 
 int main(int argc, char** argv)
 {
@@ -53,6 +69,26 @@ int main(int argc, char** argv)
 #ifdef NGRAPH_MLIR_ENABLE
     // Initialize MLIR
     ngraph::runtime::ngmlir::initializeNGraphMLIR();
+    mlir::DialectRegistry& registry = mlir::getGlobalDialectRegistry();
+    registry.insert<
+        // In-tree Dialects.
+        mlir::AffineDialect,
+        mlir::LLVM::LLVMDialect,
+        mlir::scf::SCFDialect,
+        mlir::StandardOpsDialect,
+        mlir::vector::VectorDialect,
+        // nGraph dialects.
+        mlir::NGraphOpsDialect>();
+#endif
+
+#ifdef NGRAPH_UNIT_TEST_NUMPY_ENABLE
+    // Setup embedded python interpreter and import numpy
+    py::scoped_interpreter guard{};
+    py::exec(R"(
+import numpy as np
+)",
+             py::globals(),
+             py::dict());
 #endif
 
     int rc = RUN_ALL_TESTS();

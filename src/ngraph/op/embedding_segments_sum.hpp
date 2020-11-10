@@ -79,6 +79,7 @@ namespace ngraph
                     clone_with_new_inputs(const OutputVector& new_args) const override;
 
                 virtual bool visit_attributes(AttributeVisitor& visitor) override { return true; }
+
             private:
                 static constexpr int EMB_TABLE = 0;
                 static constexpr int INDICES = 1;
@@ -88,6 +89,5 @@ namespace ngraph
                 static constexpr int PER_SAMPLE_WEIGHTS = 5;
             };
         }
-        using v3::EmbeddingSegmentsSum;
     }
 }

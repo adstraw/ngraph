@@ -26,9 +26,9 @@ using namespace ngraph;
 void pass::ConstantFolding::construct_constant_split()
 {
     auto data_label = make_shared<pattern::op::Label>(
-        element::f32, Shape{2, 3, 4}, pattern::has_class<op::Constant>());
-    auto axis_label =
-        make_shared<pattern::op::Label>(element::i64, Shape{}, pattern::has_class<op::Constant>());
+        element::f32, Shape{2, 3, 4}, pattern::has_class<op::v0::Constant>());
+    auto axis_label = make_shared<pattern::op::Label>(
+        element::i64, Shape{}, pattern::has_class<op::v0::Constant>());
     auto split_pattern = make_shared<op::v1::Split>(data_label, axis_label, 0);
 
     auto constant_split_callback = [this, data_label, axis_label](pattern::Matcher& m) {
@@ -36,9 +36,11 @@ void pass::ConstantFolding::construct_constant_split()
                      << m.get_match_root()->get_name();
         auto pattern_map = m.get_pattern_map();
 
-        const auto data_node = static_pointer_cast<op::Constant>(pattern_map[data_label]);
-        const auto axis_node = static_pointer_cast<op::Constant>(pattern_map[axis_label]);
-        const auto split = static_pointer_cast<op::v1::Split>(m.get_match_root());
+        const auto data_node = static_pointer_cast<op::v0::Constant>(pattern_map[data_label]);
+        const auto axis_node = static_pointer_cast<op::v0::Constant>(pattern_map[axis_label]);
+        const auto split = m.get_match_root_as<op::v1::Split>();
+        NGRAPH_CHECK(
+            split, "match root node ", *m.get_match_root(), " not of type `op::v1::Split`");
 
         const auto axis_val = axis_node->cast_vector<int64_t>()[0];
         const auto norm_axis_val = ngraph::normalize_axis(
@@ -48,7 +50,7 @@ void pass::ConstantFolding::construct_constant_split()
         int index = 0;
         for (auto& output : split->outputs())
         {
-            output.replace(slices[index++]->output(0));
+            output.replace(slices[index++]);
         }
         split->outputs().clear();
         construct_constant_slice();

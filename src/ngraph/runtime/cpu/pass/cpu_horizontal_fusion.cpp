@@ -19,8 +19,8 @@
 #include "ngraph/log.hpp"
 #include "ngraph/op/avg_pool.hpp"
 #include "ngraph/op/concat.hpp"
+#include "ngraph/op/conv_fused.hpp"
 #include "ngraph/op/convolution.hpp"
-#include "ngraph/op/fused/conv_fused.hpp"
 #include "ngraph/op/slice.hpp"
 #include "ngraph/pass/graph_rewrite.hpp"
 #include "ngraph/pass/manager.hpp"
@@ -30,8 +30,8 @@
 using namespace ngraph;
 using namespace std;
 
-bool has_same_attributes(const std::shared_ptr<ngraph::op::ConvolutionBias> conv1,
-                         const std::shared_ptr<ngraph::op::ConvolutionBias> conv2)
+bool has_same_attributes(const std::shared_ptr<ngraph::op::v0::ConvolutionBias> conv1,
+                         const std::shared_ptr<ngraph::op::v0::ConvolutionBias> conv2)
 {
     auto conv1_shape = conv1->get_input_shape(1);
     auto conv2_shape = conv2->get_input_shape(1);
@@ -81,8 +81,8 @@ bool has_same_attributes(const std::shared_ptr<ngraph::op::ConvolutionBias> conv
 
 void ngraph::runtime::cpu::pass::CPUHorizontalFusion::cpu_conv_horizontal_fusion()
 {
-    auto has_multiple_users = [](std::shared_ptr<Node> n) {
-        auto inputs = n->get_output_inputs(0);
+    auto has_multiple_users = [](Output<Node> n) {
+        auto inputs = n.get_node()->get_output_inputs(0);
         return inputs.size() > 1;
     };
 
@@ -91,21 +91,25 @@ void ngraph::runtime::cpu::pass::CPUHorizontalFusion::cpu_conv_horizontal_fusion
     auto filters = std::make_shared<pattern::op::Label>(element::f32, Shape{64, 256, 1, 1});
     auto bias = std::make_shared<pattern::op::Label>(element::f32, Shape{64});
 
-    auto conv_bias = std::make_shared<ngraph::op::ConvolutionBias>(data_conv,
-                                                                   filters,
-                                                                   bias,
-                                                                   Strides{1, 1},
-                                                                   Strides{1, 1},
-                                                                   CoordinateDiff{0, 0},
-                                                                   CoordinateDiff{0, 0},
-                                                                   Strides{1, 1},
-                                                                   true);
+    auto conv_bias = std::make_shared<ngraph::op::v0::ConvolutionBias>(data_conv,
+                                                                       filters,
+                                                                       bias,
+                                                                       Strides{1, 1},
+                                                                       Strides{1, 1},
+                                                                       CoordinateDiff{0, 0},
+                                                                       CoordinateDiff{0, 0},
+                                                                       Strides{1, 1},
+                                                                       true);
 
     auto callback = [data_conv](pattern::Matcher& m) {
         NGRAPH_DEBUG << "conv_horizontal_fusion: In a callback for conv horizontal fusion for "
                      << m.get_match_root()->get_name();
 
-        auto conv_bias_root = std::static_pointer_cast<op::ConvolutionBias>(m.get_match_root());
+        auto conv_bias_root = m.get_match_root_as<op::v0::ConvolutionBias>();
+        NGRAPH_CHECK(conv_bias_root,
+                     "match root node ",
+                     *m.get_match_root(),
+                     " not of type `op::v0::ConvolutionBias`");
 
         // check if the node has been replaced
         if (conv_bias_root->get_users().empty())
@@ -115,9 +119,9 @@ void ngraph::runtime::cpu::pass::CPUHorizontalFusion::cpu_conv_horizontal_fusion
         }
 
         // get weights and bias from each CBR and create Concat nodes
-        std::vector<std::shared_ptr<Node>> weights_nodes;
-        std::vector<std::shared_ptr<Node>> bias_nodes;
-        std::vector<std::shared_ptr<Node>> conv_bias_nodes;
+        OutputVector weights_nodes;
+        OutputVector bias_nodes;
+        OutputVector conv_bias_nodes;
 
         for (auto u : m.get_pattern_map()[data_conv]->get_users())
         {
@@ -126,7 +130,7 @@ void ngraph::runtime::cpu::pass::CPUHorizontalFusion::cpu_conv_horizontal_fusion
                 NGRAPH_DEBUG << "conv_horizontal_fusion: dead node\n";
                 continue;
             }
-            if (!pattern::has_class<ngraph::op::ConvolutionBias>()(u))
+            if (!pattern::has_class<ngraph::op::v0::ConvolutionBias>()(u))
             {
                 NGRAPH_DEBUG << "conv_horizontal_fusion: not conv_bias node\n";
                 continue;
@@ -138,7 +142,7 @@ void ngraph::runtime::cpu::pass::CPUHorizontalFusion::cpu_conv_horizontal_fusion
                 continue;
             }
 
-            auto conv_u = std::static_pointer_cast<op::ConvolutionBias>(u);
+            auto conv_u = std::static_pointer_cast<op::v0::ConvolutionBias>(u);
             if (!has_same_attributes(conv_u, conv_bias_root))
             {
                 continue;
@@ -155,10 +159,10 @@ void ngraph::runtime::cpu::pass::CPUHorizontalFusion::cpu_conv_horizontal_fusion
             return false;
         }
 
-        auto concat_weights = std::make_shared<ngraph::op::Concat>(weights_nodes, 0);
-        auto concat_bias = std::make_shared<ngraph::op::Concat>(bias_nodes, 0);
-        auto conv_bias_new = std::make_shared<ngraph::op::ConvolutionBias>(
-            conv_bias_root->get_argument(0),
+        auto concat_weights = std::make_shared<ngraph::op::v0::Concat>(weights_nodes, 0);
+        auto concat_bias = std::make_shared<ngraph::op::v0::Concat>(bias_nodes, 0);
+        auto conv_bias_new = std::make_shared<ngraph::op::v0::ConvolutionBias>(
+            conv_bias_root->input_value(0),
             concat_weights,
             concat_bias,
             conv_bias_root->get_window_movement_strides(),
@@ -173,7 +177,7 @@ void ngraph::runtime::cpu::pass::CPUHorizontalFusion::cpu_conv_horizontal_fusion
         size_t index = 0;
         for (auto cb : conv_bias_nodes)
         {
-            auto slice_shape = cb->get_output_shape(0);
+            auto slice_shape = cb.get_shape();
             NGRAPH_DEBUG << "conv_horizontal_fusion: slice shape " << slice_shape << "\n";
             auto lower_bounds = Coordinate{0, index, 0, 0};
             index += slice_shape[1];
@@ -181,8 +185,8 @@ void ngraph::runtime::cpu::pass::CPUHorizontalFusion::cpu_conv_horizontal_fusion
             NGRAPH_DEBUG << "conv_horizontal_fusion: lower_bounds " << lower_bounds << "\n";
             NGRAPH_DEBUG << "conv_horizontal_fusion: upper_bounds " << upper_bounds << "\n";
             auto slice =
-                std::make_shared<ngraph::op::Slice>(conv_bias_new, lower_bounds, upper_bounds);
-            ngraph::replace_node(cb, slice);
+                std::make_shared<ngraph::op::v0::Slice>(conv_bias_new, lower_bounds, upper_bounds);
+            cb.replace(slice);
         }
 
         return true;

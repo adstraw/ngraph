@@ -20,15 +20,12 @@
 using namespace std;
 using namespace ngraph;
 
-op::util::BinaryElementwiseComparison::BinaryElementwiseComparison()
-{
-}
+op::util::BinaryElementwiseComparison::BinaryElementwiseComparison() {}
 
 op::util::BinaryElementwiseComparison::BinaryElementwiseComparison(const Output<Node>& arg0,
                                                                    const Output<Node>& arg1,
                                                                    const AutoBroadcastSpec& autob)
-    : Op({arg0, arg1})
-    , m_autob(autob)
+    : BinaryElementwise(arg0, arg1, autob)
 {
 }
 
@@ -42,6 +39,5 @@ void op::util::BinaryElementwiseComparison::validate_and_infer_types()
 
 bool op::util::BinaryElementwiseComparison::visit_attributes(AttributeVisitor& visitor)
 {
-    visitor.on_attribute("auto_broadcast", m_autob);
-    return true;
+    return BinaryElementwise::visit_attributes(visitor);
 }

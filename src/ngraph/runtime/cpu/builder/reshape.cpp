@@ -18,9 +18,9 @@
 
 #include "ngraph/op/reshape.hpp"
 #include "ngraph/runtime/cpu/cpu_builder.hpp"
+#include "ngraph/runtime/cpu/dnnl_invoke.hpp"
+#include "ngraph/runtime/cpu/dnnl_utils.hpp"
 #include "ngraph/runtime/cpu/kernel/reshape.hpp"
-#include "ngraph/runtime/cpu/mkldnn_invoke.hpp"
-#include "ngraph/runtime/cpu/mkldnn_utils.hpp"
 
 using namespace std;
 using namespace ngraph;
@@ -41,14 +41,14 @@ namespace ngraph
                 size_t& size,
                 bool& skip_reshape)
             {
-                auto reshape = static_cast<const ngraph::op::Reshape*>(node);
+                auto reshape = static_cast<const ngraph::op::v0::Reshape*>(node);
 
                 arg_shape = reshape->get_input_shape(0);
                 auto arg_rank = arg_shape.size();
 
                 result_shape = reshape->get_output_shape(0);
                 auto result_rank = result_shape.size();
-                auto& result_element_type = reshape->get_element_type();
+                auto& result_element_type = reshape->get_output_element_type(0);
 
                 input_order = reshape->get_input_order();
 
@@ -109,7 +109,7 @@ namespace ngraph
             }
 
             template <>
-            NodeExecutorTy Builder::BUILDER_CF_DECL(ngraph::op::Reshape)
+            NodeExecutorTy Builder::BUILDER_CF_DECL(ngraph::op::v0::Reshape)
             {
                 std::function<decltype(runtime::cpu::kernel::reshape_1d<float, 2>)> kernel;
                 std::function<decltype(runtime::cpu::kernel::reshape_ref<float>)> ref_kernel;
@@ -130,14 +130,14 @@ namespace ngraph
                 if (kernel)
                 {
                     functor = [kernel, arg_shape, input_order, result_shape](
-                        const std::vector<void*>& inputs, std::vector<void*>& outputs) {
+                                  const std::vector<void*>& inputs, std::vector<void*>& outputs) {
                         kernel(inputs[0], outputs[0], arg_shape, input_order, result_shape, 0);
                     };
                 }
                 else if (ref_kernel)
                 {
                     functor = [ref_kernel, arg_shape, input_order, result_shape](
-                        std::vector<void*> inputs, std::vector<void*> outputs) {
+                                  std::vector<void*> inputs, std::vector<void*> outputs) {
                         ref_kernel(inputs[0], outputs[0], arg_shape, input_order, result_shape, 0);
                     };
                 }
@@ -162,7 +162,7 @@ namespace ngraph
             }
 
             template <>
-            void Builder::BUILDER_DECL(ngraph::op::Reshape)
+            void Builder::BUILDER_DECL(ngraph::op::v0::Reshape)
             {
                 auto& functors = external_function->get_functors();
 
@@ -224,7 +224,7 @@ namespace ngraph
                 else if (skip_reshape)
                 {
                     functor = [&, size, arg_buffer_index, out_buffer_index](
-                        CPURuntimeContext* ctx, CPUExecutionContext* /* ectx */) {
+                                  CPURuntimeContext* ctx, CPUExecutionContext* /* ectx */) {
                         if (ctx->buffer_data[out_buffer_index] !=
                             ctx->buffer_data[arg_buffer_index])
                         {
@@ -237,7 +237,7 @@ namespace ngraph
                 else
                 {
                     functor = [&, size, arg_buffer_index, out_buffer_index](
-                        CPURuntimeContext* ctx, CPUExecutionContext* /* ectx */) {
+                                  CPURuntimeContext* ctx, CPUExecutionContext* /* ectx */) {
                         memcpy(ctx->buffer_data[out_buffer_index],
                                ctx->buffer_data[arg_buffer_index],
                                size);
@@ -248,8 +248,8 @@ namespace ngraph
 
             void register_builders_reshape_cpp()
             {
-                REGISTER_CF_BUILDER(Reshape);
-                REGISTER_OP_BUILDER(Reshape);
+                REGISTER_CF_BUILDER(ngraph::op::v0::Reshape);
+                REGISTER_OP_BUILDER(ngraph::op::v0::Reshape);
             }
         }
     }

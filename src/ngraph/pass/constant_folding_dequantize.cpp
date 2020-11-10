@@ -22,12 +22,12 @@ using namespace std;
 using namespace ngraph;
 
 template <class QUANT, class REAL>
-shared_ptr<op::Constant> fold_constant_dequantize(shared_ptr<op::Constant> constant,
-                                                  shared_ptr<op::Dequantize> dequant,
-                                                  shared_ptr<op::Constant> scale,
-                                                  shared_ptr<op::Constant> offset)
+Output<Node> fold_constant_dequantize(shared_ptr<op::v0::Constant> constant,
+                                      shared_ptr<op::v0::Dequantize> dequant,
+                                      shared_ptr<op::v0::Constant> scale,
+                                      shared_ptr<op::v0::Constant> offset)
 {
-    const Shape& out_shape = constant->get_shape();
+    const Shape& out_shape = constant->get_output_shape(0);
     runtime::AlignedBuffer buffer(shape_size(out_shape) * sizeof(REAL));
     REAL* data_ptr = buffer.get_ptr<REAL>();
 
@@ -35,22 +35,23 @@ shared_ptr<op::Constant> fold_constant_dequantize(shared_ptr<op::Constant> const
                                                 scale->get_vector<REAL>().data(),
                                                 offset->get_vector<QUANT>().data(),
                                                 data_ptr,
-                                                constant->get_shape(),
-                                                scale->get_shape(),
+                                                constant->get_output_shape(0),
+                                                scale->get_output_shape(0),
                                                 dequant->get_axes());
 
-    return make_shared<op::Constant>(dequant->get_element_type(), out_shape, data_ptr);
+    return make_shared<op::v0::Constant>(dequant->get_output_element_type(0), out_shape, data_ptr)
+        ->output(0);
 }
 
 void pass::ConstantFolding::construct_constant_dequantize()
 {
-    auto constant_label =
-        make_shared<pattern::op::Label>(element::u8, Shape{2}, pattern::has_class<op::Constant>());
-    auto dq_scale = op::Constant::create(element::f32, Shape{}, {1});
-    auto dq_offset = op::Constant::create(element::u8, Shape{}, {1});
-    auto dequant_op =
-        make_shared<op::Dequantize>(constant_label, dq_scale, dq_offset, element::f32, AxisSet{});
-    auto dequant = make_shared<pattern::op::Label>(dequant_op, nullptr, NodeVector{dequant_op});
+    auto constant_label = make_shared<pattern::op::Label>(
+        element::u8, Shape{2}, pattern::has_class<op::v0::Constant>());
+    auto dq_scale = op::v0::Constant::create(element::f32, Shape{}, {1});
+    auto dq_offset = op::v0::Constant::create(element::u8, Shape{}, {1});
+    auto dequant_op = make_shared<op::v0::Dequantize>(
+        constant_label, dq_scale, dq_offset, element::f32, AxisSet{});
+    auto dequant = make_shared<pattern::op::Label>(dequant_op, nullptr, OutputVector{dequant_op});
 
     auto constant_dequantize_callback = [constant_label, dequant](pattern::Matcher& m) {
         NGRAPH_DEBUG << "In callback for constant_dequantize_callback against node = "
@@ -58,34 +59,33 @@ void pass::ConstantFolding::construct_constant_dequantize()
 
         auto pattern_map = m.get_pattern_map();
 
-        auto constant_match = as_type_ptr<op::Constant>(pattern_map[constant_label]);
+        auto constant_match = as_type_ptr<op::v0::Constant>(pattern_map[constant_label]);
         auto dequant_match = pattern_map[dequant];
-        auto dequantize_op = as_type_ptr<op::Dequantize>(dequant_match);
+        auto dequantize_op = as_type_ptr<op::v0::Dequantize>(dequant_match);
 
-        auto scale = as_type_ptr<op::Constant>(dequant_match->input_value(1).get_node_shared_ptr());
+        auto scale =
+            as_type_ptr<op::v0::Constant>(dequant_match->input_value(1).get_node_shared_ptr());
         auto offset =
-            as_type_ptr<op::Constant>(dequant_match->input_value(2).get_node_shared_ptr());
+            as_type_ptr<op::v0::Constant>(dequant_match->input_value(2).get_node_shared_ptr());
 
         NGRAPH_CHECK(revalidate_and_ensure_static(dequantize_op));
-        auto type = constant_match->get_element_type();
+        auto type = constant_match->get_output_element_type(0);
 
-        if (dequant_match->get_element_type() != element::f32)
+        if (dequant_match->get_output_element_type(0) != element::f32)
         {
             return false;
         }
 
         if (type == element::u8)
         {
-            replace_node(m.get_match_root(),
-                         fold_constant_dequantize<uint8_t, float>(
-                             constant_match, dequantize_op, scale, offset));
+            m.get_match_value().replace(fold_constant_dequantize<uint8_t, float>(
+                constant_match, dequantize_op, scale, offset));
             return true;
         }
         else if (type == element::i8)
         {
-            replace_node(m.get_match_root(),
-                         fold_constant_dequantize<int8_t, float>(
-                             constant_match, dequantize_op, scale, offset));
+            m.get_match_value().replace(fold_constant_dequantize<int8_t, float>(
+                constant_match, dequantize_op, scale, offset));
             return true;
         }
 

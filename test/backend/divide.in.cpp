@@ -48,9 +48,9 @@ NGRAPH_TEST(${BACKEND_NAME}, divide)
 {
     Shape shape{2, 2};
 
-    auto A = make_shared<op::Parameter>(element::f32, shape);
-    auto B = make_shared<op::Parameter>(element::f32, shape);
-    auto f = make_shared<Function>(make_shared<op::Divide>(A, B), ParameterVector{A, B});
+    auto A = make_shared<op::v0::Parameter>(element::f32, shape);
+    auto B = make_shared<op::v0::Parameter>(element::f32, shape);
+    auto f = make_shared<Function>(make_shared<op::v1::Divide>(A, B), ParameterVector{A, B});
 
     auto backend = runtime::Backend::create("${BACKEND_NAME}");
 
@@ -70,9 +70,9 @@ NGRAPH_TEST(${BACKEND_NAME}, divide_int32)
 {
     Shape shape{2, 2};
 
-    auto A = make_shared<op::Parameter>(element::i32, shape);
-    auto B = make_shared<op::Parameter>(element::i32, shape);
-    auto f = make_shared<Function>(make_shared<op::Divide>(A, B), ParameterVector{A, B});
+    auto A = make_shared<op::v0::Parameter>(element::i32, shape);
+    auto B = make_shared<op::v0::Parameter>(element::i32, shape);
+    auto f = make_shared<Function>(make_shared<op::v1::Divide>(A, B), ParameterVector{A, B});
 
     auto backend = runtime::Backend::create("${BACKEND_NAME}");
 
@@ -92,9 +92,9 @@ NGRAPH_TEST(${BACKEND_NAME}, divide_cpp_rounding_int32)
 {
     Shape shape{2, 2};
 
-    auto A = make_shared<op::Parameter>(element::i32, shape);
-    auto B = make_shared<op::Parameter>(element::i32, shape);
-    auto f = make_shared<Function>(make_shared<op::Divide>(A, B, false), ParameterVector{A, B});
+    auto A = make_shared<op::v0::Parameter>(element::i32, shape);
+    auto B = make_shared<op::v0::Parameter>(element::i32, shape);
+    auto f = make_shared<Function>(make_shared<op::v1::Divide>(A, B, false), ParameterVector{A, B});
 
     auto backend = runtime::Backend::create("${BACKEND_NAME}");
 
@@ -114,9 +114,9 @@ NGRAPH_TEST(${BACKEND_NAME}, divide_python_rounding_int32)
 {
     Shape shape{2, 2};
 
-    auto A = make_shared<op::Parameter>(element::i32, shape);
-    auto B = make_shared<op::Parameter>(element::i32, shape);
-    auto f = make_shared<Function>(make_shared<op::Divide>(A, B), ParameterVector{A, B});
+    auto A = make_shared<op::v0::Parameter>(element::i32, shape);
+    auto B = make_shared<op::v0::Parameter>(element::i32, shape);
+    auto f = make_shared<Function>(make_shared<op::v1::Divide>(A, B), ParameterVector{A, B});
 
     auto backend = runtime::Backend::create("${BACKEND_NAME}");
 
@@ -136,8 +136,8 @@ NGRAPH_TEST(${BACKEND_NAME}, divide_overload)
 {
     Shape shape{2, 2};
 
-    auto A = make_shared<op::Parameter>(element::f32, shape);
-    auto B = make_shared<op::Parameter>(element::f32, shape);
+    auto A = make_shared<op::v0::Parameter>(element::f32, shape);
+    auto B = make_shared<op::v0::Parameter>(element::f32, shape);
     auto f = make_shared<Function>(A / B, ParameterVector{A, B});
 
     auto backend = runtime::Backend::create("${BACKEND_NAME}");
@@ -161,20 +161,20 @@ NGRAPH_TEST(${BACKEND_NAME}, divide_adjoint_stability)
     Shape shape{2, 2};
 
     auto make_external = [&]() {
-        auto A = make_shared<op::Parameter>(element::f32, shape);
-        auto B = make_shared<op::Parameter>(element::f32, shape);
-        auto f = make_shared<Function>(make_shared<op::Divide>(A, B), ParameterVector{A, B});
+        auto A = make_shared<op::v0::Parameter>(element::f32, shape);
+        auto B = make_shared<op::v0::Parameter>(element::f32, shape);
+        auto f = make_shared<Function>(make_shared<op::v1::Divide>(A, B), ParameterVector{A, B});
 
         auto Y_out = f->output(0);
         auto Xs = f->get_parameters();
-        auto C = std::make_shared<op::Parameter>(Y_out.get_element_type(), Y_out.get_shape());
+        auto C = std::make_shared<op::v0::Parameter>(Y_out.get_element_type(), Y_out.get_shape());
         ngraph::autodiff::Adjoints adjoints(OutputVector{Y_out}, OutputVector{C});
-        std::vector<Output<Node>> dYdXs(Xs.size());
+        OutputVector dYdXs(Xs.size());
         transform(
             Xs.begin(), Xs.end(), dYdXs.begin(), [C, &adjoints](const std::shared_ptr<Node>& X) {
                 return adjoints.backprop_output(X);
             });
-        std::vector<std::shared_ptr<op::Parameter>> params(Xs);
+        ParameterVector params(Xs);
         params.push_back(C);
 
         auto bf = std::make_shared<Function>(dYdXs, params);
@@ -207,9 +207,9 @@ NGRAPH_TEST(${BACKEND_NAME}, divide_by_zero_float32)
 {
     Shape shape{2, 2};
 
-    auto A = make_shared<op::Parameter>(element::f32, shape);
-    auto B = make_shared<op::Parameter>(element::f32, shape);
-    auto f = make_shared<Function>(make_shared<op::Divide>(A, B), ParameterVector{A, B});
+    auto A = make_shared<op::v0::Parameter>(element::f32, shape);
+    auto B = make_shared<op::v0::Parameter>(element::f32, shape);
+    auto f = make_shared<Function>(make_shared<op::v1::Divide>(A, B), ParameterVector{A, B});
 
     auto backend = runtime::Backend::create("${BACKEND_NAME}");
 

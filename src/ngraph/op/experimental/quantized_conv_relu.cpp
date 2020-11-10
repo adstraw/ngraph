@@ -16,21 +16,20 @@
 
 #include "ngraph/op/experimental/quantized_conv_relu.hpp"
 #include "ngraph/op/convolution.hpp"
-#include "ngraph/op/get_output_element.hpp"
 
 using namespace std;
 using namespace ngraph;
 
-constexpr NodeTypeInfo op::QuantizedConvolutionRelu::type_info;
+constexpr NodeTypeInfo op::v0::QuantizedConvolutionRelu::type_info;
 
-op::QuantizedConvolutionRelu::QuantizedConvolutionRelu(const Output<Node>& data_batch,
-                                                       const Output<Node>& filters,
-                                                       const Strides& window_movement_strides,
-                                                       const Strides& window_dilation_strides,
-                                                       const CoordinateDiff& padding_below,
-                                                       const CoordinateDiff& padding_above,
-                                                       const Strides& data_dilation_strides,
-                                                       const Output<Node>& scale)
+op::v0::QuantizedConvolutionRelu::QuantizedConvolutionRelu(const Output<Node>& data_batch,
+                                                           const Output<Node>& filters,
+                                                           const Strides& window_movement_strides,
+                                                           const Strides& window_dilation_strides,
+                                                           const CoordinateDiff& padding_below,
+                                                           const CoordinateDiff& padding_above,
+                                                           const Strides& data_dilation_strides,
+                                                           const Output<Node>& scale)
     : Op({data_batch, filters, scale})
     , m_window_movement_strides(window_movement_strides)
     , m_window_dilation_strides(window_dilation_strides)
@@ -63,19 +62,19 @@ op::QuantizedConvolutionRelu::QuantizedConvolutionRelu(const Output<Node>& data_
 }
 
 shared_ptr<Node>
-    op::QuantizedConvolutionRelu::clone_with_new_inputs(const OutputVector& new_args) const
+    op::v0::QuantizedConvolutionRelu::clone_with_new_inputs(const OutputVector& new_args) const
 {
     if (new_args.size() != 3)
     {
         throw ngraph_error("Incorrect number of new arguments");
     }
 
-    return shared_ptr<Node>(new QuantizedConvolutionRelu(new_args.at(0),
-                                                         new_args.at(1),
-                                                         get_window_movement_strides(),
-                                                         get_window_dilation_strides(),
-                                                         get_padding_below(),
-                                                         get_padding_above(),
-                                                         get_data_dilation_strides(),
-                                                         new_args.at(2)));
+    return make_shared<QuantizedConvolutionRelu>(new_args.at(0),
+                                                 new_args.at(1),
+                                                 get_window_movement_strides(),
+                                                 get_window_dilation_strides(),
+                                                 get_padding_below(),
+                                                 get_padding_above(),
+                                                 get_data_dilation_strides(),
+                                                 new_args.at(2));
 }

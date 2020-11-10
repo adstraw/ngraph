@@ -29,13 +29,13 @@
 #include <tbb/flow_graph.h>
 #endif
 
-#if !defined(NGRAPH_DEX_ONLY)
+#if defined(CODEGEN_ENABLE)
 #include "ngraph/code_writer.hpp"
 #include "ngraph/codegen/compiler.hpp"
 #include "ngraph/codegen/execution_engine.hpp"
 #endif
 
-#ifdef NGRAPH_MLIR_ENABLE
+#ifdef NGRAPH_CPU_MLIR_ENABLE
 #include "contrib/mlir/core/pass/mlir_subgraph_extraction.hpp"
 #endif
 
@@ -51,7 +51,6 @@
 #include "ngraph/op/add.hpp"
 #include "ngraph/op/all.hpp"
 #include "ngraph/op/allreduce.hpp"
-#include "ngraph/op/and.hpp"
 #include "ngraph/op/any.hpp"
 #include "ngraph/op/argmax.hpp"
 #include "ngraph/op/argmin.hpp"
@@ -65,6 +64,7 @@
 #include "ngraph/op/ceiling.hpp"
 #include "ngraph/op/concat.hpp"
 #include "ngraph/op/constant.hpp"
+#include "ngraph/op/conv_fused.hpp"
 #include "ngraph/op/convert.hpp"
 #include "ngraph/op/convolution.hpp"
 #include "ngraph/op/cos.hpp"
@@ -85,22 +85,23 @@
 #include "ngraph/op/experimental/quantized_dot_bias.hpp"
 #include "ngraph/op/experimental/random_uniform.hpp"
 #include "ngraph/op/floor.hpp"
-#include "ngraph/op/fused/conv_fused.hpp"
-#include "ngraph/op/fused/gelu.hpp"
-#include "ngraph/op/fused/gemm.hpp"
-#include "ngraph/op/fused/lstm_cell.hpp"
-#include "ngraph/op/fused/matmul.hpp"
-#include "ngraph/op/fused/softmax_crossentropy.hpp"
 #include "ngraph/op/gather.hpp"
 #include "ngraph/op/gather_nd.hpp"
-#include "ngraph/op/get_output_element.hpp"
+#include "ngraph/op/gelu.hpp"
+#include "ngraph/op/gemm.hpp"
 #include "ngraph/op/greater.hpp"
-#include "ngraph/op/greater_eq.hpp"
+#include "ngraph/op/greater_equal.hpp"
 #include "ngraph/op/group_conv.hpp"
 #include "ngraph/op/less.hpp"
-#include "ngraph/op/less_eq.hpp"
+#include "ngraph/op/less_equal.hpp"
 #include "ngraph/op/log.hpp"
+#include "ngraph/op/logical_and.hpp"
+#include "ngraph/op/logical_not.hpp"
+#include "ngraph/op/logical_or.hpp"
+#include "ngraph/op/logical_xor.hpp"
 #include "ngraph/op/lrn.hpp"
+#include "ngraph/op/lstm_cell.hpp"
+#include "ngraph/op/matmul.hpp"
 #include "ngraph/op/max.hpp"
 #include "ngraph/op/max_pool.hpp"
 #include "ngraph/op/maximum.hpp"
@@ -108,11 +109,9 @@
 #include "ngraph/op/minimum.hpp"
 #include "ngraph/op/multiply.hpp"
 #include "ngraph/op/negative.hpp"
-#include "ngraph/op/not.hpp"
 #include "ngraph/op/not_equal.hpp"
 #include "ngraph/op/one_hot.hpp"
 #include "ngraph/op/op.hpp"
-#include "ngraph/op/or.hpp"
 #include "ngraph/op/pad.hpp"
 #include "ngraph/op/parameter.hpp"
 #include "ngraph/op/power.hpp"
@@ -135,6 +134,7 @@
 #include "ngraph/op/sinh.hpp"
 #include "ngraph/op/slice.hpp"
 #include "ngraph/op/softmax.hpp"
+#include "ngraph/op/softmax_crossentropy.hpp"
 #include "ngraph/op/sqrt.hpp"
 #include "ngraph/op/subtract.hpp"
 #include "ngraph/op/sum.hpp"
@@ -142,24 +142,22 @@
 #include "ngraph/op/tanh.hpp"
 #include "ngraph/op/tile.hpp"
 #include "ngraph/op/topk.hpp"
-#include "ngraph/op/xor.hpp"
 #include "ngraph/pass/algebraic_simplification.hpp"
 #include "ngraph/pass/batch_fusion.hpp"
 #include "ngraph/pass/common_function_collection.hpp"
 #include "ngraph/pass/constant_folding.hpp"
+#include "ngraph/pass/convert_opset_1_to_0.hpp"
+#include "ngraph/pass/convert_opset_3_to_1.hpp"
 #include "ngraph/pass/core_fusion.hpp"
 #include "ngraph/pass/cse.hpp"
 #include "ngraph/pass/dump_sorted.hpp"
 #include "ngraph/pass/fused_op_decomposition.hpp"
-#include "ngraph/pass/get_output_element_elimination.hpp"
 #include "ngraph/pass/implicit_broadcast_elimination.hpp"
 #include "ngraph/pass/like_replacement.hpp"
 #include "ngraph/pass/liveness.hpp"
 #include "ngraph/pass/manager.hpp"
 #include "ngraph/pass/memory_layout.hpp"
 #include "ngraph/pass/nop_elimination.hpp"
-#include "ngraph/pass/opset0_downgrade.hpp"
-#include "ngraph/pass/opset1_downgrade.hpp"
 #include "ngraph/pass/propagate_cacheability.hpp"
 #include "ngraph/pass/reshape_elimination.hpp"
 #include "ngraph/pass/reshape_sinking.hpp"
@@ -177,8 +175,8 @@
 #include "ngraph/runtime/cpu/cpu_tensor.hpp"
 #include "ngraph/runtime/cpu/cpu_tracing.hpp"
 #include "ngraph/runtime/cpu/cpu_visualize_tree.hpp"
-#include "ngraph/runtime/cpu/mkldnn_emitter.hpp"
-#include "ngraph/runtime/cpu/mkldnn_utils.hpp"
+#include "ngraph/runtime/cpu/dnnl_emitter.hpp"
+#include "ngraph/runtime/cpu/dnnl_utils.hpp"
 #include "ngraph/runtime/cpu/op/batch_norm_relu.hpp"
 #include "ngraph/runtime/cpu/op/bounded_relu.hpp"
 #include "ngraph/runtime/cpu/op/conv_add.hpp"
@@ -198,13 +196,13 @@
 #include "ngraph/runtime/cpu/op/update_slice.hpp"
 #include "ngraph/runtime/cpu/pass/cpu_assignment.hpp"
 #include "ngraph/runtime/cpu/pass/cpu_collapse_dims.hpp"
+#include "ngraph/runtime/cpu/pass/cpu_dnnl_primitive_build.hpp"
 #include "ngraph/runtime/cpu/pass/cpu_fusion.hpp"
 #include "ngraph/runtime/cpu/pass/cpu_horizontal_fusion.hpp"
 #include "ngraph/runtime/cpu/pass/cpu_layout.hpp"
 #include "ngraph/runtime/cpu/pass/cpu_mat_fusion.hpp"
 #include "ngraph/runtime/cpu/pass/cpu_memory_assignment.hpp"
 #include "ngraph/runtime/cpu/pass/cpu_memory_optimization.hpp"
-#include "ngraph/runtime/cpu/pass/cpu_mkldnn_primitive_build.hpp"
 #include "ngraph/runtime/cpu/pass/cpu_post_layout_optimizations.hpp"
 #include "ngraph/runtime/cpu/pass/cpu_rnn_fusion.hpp"
 #include "ngraph/runtime/cpu/pass/cpu_workspace_insertion.hpp"
@@ -241,22 +239,22 @@ using namespace ngraph;
     }
 
 runtime::cpu::CPU_ExternalFunction::CPU_ExternalFunction(
-    const shared_ptr<ngraph::Function>& function, bool release_function)
+    const shared_ptr<ngraph::Function>& function, EXECUTION_MODE mode)
     : m_function(function)
-    , m_release_function(release_function)
     , m_emit_timing(false)
 #if defined(NGRAPH_TBB_ENABLE)
     , m_use_tbb(getenv_bool("NGRAPH_CPU_USE_TBB"))
 #endif
-#if !defined(NGRAPH_DEX_ONLY)
+#if defined(CODEGEN_ENABLE)
     , m_is_compiled(false)
-    , m_direct_execution(!getenv_bool("NGRAPH_CODEGEN"))
+    , m_direct_execution(mode != EXECUTION_MODE::CODEGEN)
 #else
     , m_direct_execution(true)
 #endif
     , m_compiled_function(nullptr)
     , m_function_name(function->get_name())
     , m_is_built(false)
+    , m_execution_mode(mode)
 {
 }
 
@@ -274,9 +272,9 @@ public:
     StaticInitializers(string directory) { ngraph::file_util::remove_directory(directory); }
 };
 
-#if !defined(NGRAPH_DEX_ONLY)
+static const string s_debug_dir = "cpu_codegen";
 
-static const string s_output_dir = "cpu_codegen";
+#if defined(CODEGEN_ENABLE)
 
 static string emit_string_array(const vector<string>& s, size_t max_line_length)
 {
@@ -310,160 +308,173 @@ static string emit_string_array(const vector<string>& s, size_t max_line_length)
     return ss.str();
 }
 
-static StaticInitializers s_static_initializers(s_output_dir);
-
 #define TI(x) type_index(typeid(x))
 
 static const runtime::cpu::OpMap dispatcher{
-    {TI(ngraph::op::Add), &runtime::cpu::CPU_Emitter::emit<op::Add>},
-    {TI(ngraph::op::AllReduce), &runtime::cpu::CPU_Emitter::emit<op::AllReduce>},
-    {TI(ngraph::op::BroadcastDistributed),
-     &runtime::cpu::CPU_Emitter::emit<op::BroadcastDistributed>},
+    {TI(ngraph::op::v1::Add), &runtime::cpu::CPU_Emitter::emit<op::v1::Add>},
+    {TI(ngraph::op::v0::AllReduce), &runtime::cpu::CPU_Emitter::emit<op::v0::AllReduce>},
+    {TI(ngraph::op::v0::BroadcastDistributed),
+     &runtime::cpu::CPU_Emitter::emit<op::v0::BroadcastDistributed>},
     {TI(ngraph::op::MatmulBias), &runtime::cpu::CPU_Emitter::emit<op::MatmulBias>},
-    {TI(ngraph::op::Dot), &runtime::cpu::CPU_Emitter::emit<op::Dot>},
-    {TI(ngraph::op::Multiply), &runtime::cpu::CPU_Emitter::emit<op::Multiply>},
-    {TI(ngraph::op::Parameter), &runtime::cpu::CPU_Emitter::nop},
-    {TI(ngraph::op::Abs), &runtime::cpu::CPU_Emitter::emit<op::Abs>},
-    {TI(ngraph::op::Any), &runtime::cpu::CPU_Emitter::emit<op::Any>},
-    {TI(ngraph::op::All), &runtime::cpu::CPU_Emitter::emit<op::All>},
-    {TI(ngraph::op::BatchMatMul), &runtime::cpu::CPU_Emitter::emit<op::BatchMatMul>},
-    {TI(ngraph::op::Concat), &runtime::cpu::CPU_Emitter::emit<op::Concat>},
-    {TI(ngraph::op::Divide), &runtime::cpu::CPU_Emitter::emit<op::Divide>},
-    {TI(ngraph::op::Equal), &runtime::cpu::CPU_Emitter::emit<op::Equal>},
-    {TI(ngraph::op::Erf), &runtime::cpu::CPU_Emitter::emit<op::Erf>},
-    {TI(ngraph::op::Gather), &runtime::cpu::CPU_Emitter::emit<op::Gather>},
-    {TI(ngraph::op::GatherND), &runtime::cpu::CPU_Emitter::emit<op::GatherND>},
-    {TI(ngraph::op::ScatterAdd), &runtime::cpu::CPU_Emitter::emit<op::ScatterAdd>},
-    {TI(ngraph::op::ScatterNDAdd), &runtime::cpu::CPU_Emitter::emit<op::ScatterNDAdd>},
-    {TI(ngraph::op::GetOutputElement), &runtime::cpu::CPU_Emitter::emit<op::GetOutputElement>},
-    {TI(ngraph::op::Greater), &runtime::cpu::CPU_Emitter::emit<op::Greater>},
-    {TI(ngraph::op::GreaterEq), &runtime::cpu::CPU_Emitter::emit<op::GreaterEq>},
-    {TI(ngraph::op::Less), &runtime::cpu::CPU_Emitter::emit<op::Less>},
-    {TI(ngraph::op::LessEq), &runtime::cpu::CPU_Emitter::emit<op::LessEq>},
-    {TI(ngraph::op::Log), &runtime::cpu::CPU_Emitter::emit<op::Log>},
-    {TI(ngraph::op::Maximum), &runtime::cpu::CPU_Emitter::emit<op::Maximum>},
-    {TI(ngraph::op::Minimum), &runtime::cpu::CPU_Emitter::emit<op::Minimum>},
-    {TI(ngraph::op::Negative), &runtime::cpu::CPU_Emitter::emit<op::Negative>},
-    {TI(ngraph::op::NotEqual), &runtime::cpu::CPU_Emitter::emit<op::NotEqual>},
-    {TI(ngraph::op::Power), &runtime::cpu::CPU_Emitter::emit<op::Power>},
-    {TI(ngraph::op::Select), &runtime::cpu::CPU_Emitter::emit<op::Select>},
-    {TI(ngraph::op::Subtract), &runtime::cpu::CPU_Emitter::emit<op::Subtract>},
-    {TI(ngraph::op::Broadcast), &runtime::cpu::CPU_Emitter::emit<op::Broadcast>},
-    {TI(ngraph::op::Convert), &runtime::cpu::CPU_Emitter::emit<op::Convert>},
-    {TI(ngraph::op::Constant), &runtime::cpu::CPU_Emitter::emit<op::Constant>},
-    {TI(ngraph::op::Reshape), &runtime::cpu::CPU_Emitter::emit<op::Reshape>},
-    {TI(ngraph::op::Sign), &runtime::cpu::CPU_Emitter::emit<op::Sign>},
-    {TI(ngraph::op::Slice), &runtime::cpu::CPU_Emitter::emit<op::Slice>},
-    {TI(ngraph::op::Sum), &runtime::cpu::CPU_Emitter::emit<op::Sum>},
-    {TI(ngraph::op::EmbeddingLookup), &runtime::cpu::CPU_Emitter::emit<op::EmbeddingLookup>},
-    {TI(ngraph::op::Exp), &runtime::cpu::CPU_Emitter::emit<op::Exp>},
-    {TI(ngraph::op::Sin), &runtime::cpu::CPU_Emitter::emit<op::Sin>},
-    {TI(ngraph::op::Sinh), &runtime::cpu::CPU_Emitter::emit<op::Sinh>},
-    {TI(ngraph::op::Cos), &runtime::cpu::CPU_Emitter::emit<op::Cos>},
-    {TI(ngraph::op::Cosh), &runtime::cpu::CPU_Emitter::emit<op::Cosh>},
-    {TI(ngraph::op::CumSum), &runtime::cpu::CPU_Emitter::emit<op::CumSum>},
-    {TI(ngraph::op::Tan), &runtime::cpu::CPU_Emitter::emit<op::Tan>},
-    {TI(ngraph::op::Tanh), &runtime::cpu::CPU_Emitter::emit<op::Tanh>},
-    {TI(ngraph::op::TopK), &runtime::cpu::CPU_Emitter::emit<op::TopK>},
-    {TI(ngraph::op::Asin), &runtime::cpu::CPU_Emitter::emit<op::Asin>},
-    {TI(ngraph::op::ArgMin), &runtime::cpu::CPU_Emitter::emit<op::ArgMin>},
-    {TI(ngraph::op::ArgMax), &runtime::cpu::CPU_Emitter::emit<op::ArgMax>},
-    {TI(ngraph::op::Acos), &runtime::cpu::CPU_Emitter::emit<op::Acos>},
-    {TI(ngraph::op::Atan), &runtime::cpu::CPU_Emitter::emit<op::Atan>},
-    {TI(ngraph::op::Atan2), &runtime::cpu::CPU_Emitter::emit<op::Atan2>},
-    {TI(ngraph::op::ReplaceSlice), &runtime::cpu::CPU_Emitter::emit<op::ReplaceSlice>},
+    {TI(ngraph::op::v0::Dot), &runtime::cpu::CPU_Emitter::emit<op::v0::Dot>},
+    {TI(ngraph::op::v1::Multiply), &runtime::cpu::CPU_Emitter::emit<op::v1::Multiply>},
+    {TI(ngraph::op::v0::Parameter), &runtime::cpu::CPU_Emitter::nop},
+    {TI(ngraph::op::v0::Abs), &runtime::cpu::CPU_Emitter::emit<op::v0::Abs>},
+    {TI(ngraph::op::v0::Any), &runtime::cpu::CPU_Emitter::emit<op::v0::Any>},
+    {TI(ngraph::op::v0::All), &runtime::cpu::CPU_Emitter::emit<op::v0::All>},
+    {TI(ngraph::op::v0::BatchMatMul), &runtime::cpu::CPU_Emitter::emit<op::v0::BatchMatMul>},
+    {TI(ngraph::op::v0::Concat), &runtime::cpu::CPU_Emitter::emit<op::v0::Concat>},
+    {TI(ngraph::op::v1::Divide), &runtime::cpu::CPU_Emitter::emit<op::v1::Divide>},
+    {TI(ngraph::op::v1::Equal), &runtime::cpu::CPU_Emitter::emit<op::v1::Equal>},
+    {TI(ngraph::op::v0::Erf), &runtime::cpu::CPU_Emitter::emit<op::v0::Erf>},
+    {TI(ngraph::op::v0::Gather), &runtime::cpu::CPU_Emitter::emit<op::v0::Gather>},
+    {TI(ngraph::op::v0::GatherND), &runtime::cpu::CPU_Emitter::emit<op::v0::GatherND>},
+    {TI(ngraph::op::v0::ScatterAdd), &runtime::cpu::CPU_Emitter::emit<op::v0::ScatterAdd>},
+    {TI(ngraph::op::v0::ScatterNDAdd), &runtime::cpu::CPU_Emitter::emit<op::v0::ScatterNDAdd>},
+    {TI(ngraph::op::v1::Greater), &runtime::cpu::CPU_Emitter::emit<op::v1::Greater>},
+    {TI(ngraph::op::v1::GreaterEqual), &runtime::cpu::CPU_Emitter::emit<op::v1::GreaterEqual>},
+    {TI(ngraph::op::v1::Less), &runtime::cpu::CPU_Emitter::emit<op::v1::Less>},
+    {TI(ngraph::op::v1::LessEqual), &runtime::cpu::CPU_Emitter::emit<op::v1::LessEqual>},
+    {TI(ngraph::op::v0::Log), &runtime::cpu::CPU_Emitter::emit<op::v0::Log>},
+    {TI(ngraph::op::v1::Maximum), &runtime::cpu::CPU_Emitter::emit<op::v1::Maximum>},
+    {TI(ngraph::op::v1::Minimum), &runtime::cpu::CPU_Emitter::emit<op::v1::Minimum>},
+    {TI(ngraph::op::v0::Negative), &runtime::cpu::CPU_Emitter::emit<op::v0::Negative>},
+    {TI(ngraph::op::v1::NotEqual), &runtime::cpu::CPU_Emitter::emit<op::v1::NotEqual>},
+    {TI(ngraph::op::v1::Power), &runtime::cpu::CPU_Emitter::emit<op::v1::Power>},
+    {TI(ngraph::op::v0::Select), &runtime::cpu::CPU_Emitter::emit<op::v0::Select>},
+    {TI(ngraph::op::v1::Subtract), &runtime::cpu::CPU_Emitter::emit<op::v1::Subtract>},
+    {TI(ngraph::op::v0::Broadcast), &runtime::cpu::CPU_Emitter::emit<op::v0::Broadcast>},
+    {TI(ngraph::op::v0::Convert), &runtime::cpu::CPU_Emitter::emit<op::v0::Convert>},
+    {TI(ngraph::op::v0::Constant), &runtime::cpu::CPU_Emitter::emit<op::v0::Constant>},
+    {TI(ngraph::op::v0::Reshape), &runtime::cpu::CPU_Emitter::emit<op::v0::Reshape>},
+    {TI(ngraph::op::v0::Sign), &runtime::cpu::CPU_Emitter::emit<op::v0::Sign>},
+    {TI(ngraph::op::v0::Slice), &runtime::cpu::CPU_Emitter::emit<op::v0::Slice>},
+    {TI(ngraph::op::v0::Sum), &runtime::cpu::CPU_Emitter::emit<op::v0::Sum>},
+    {TI(ngraph::op::v0::EmbeddingLookup),
+     &runtime::cpu::CPU_Emitter::emit<op::v0::EmbeddingLookup>},
+    {TI(ngraph::op::v0::Exp), &runtime::cpu::CPU_Emitter::emit<op::v0::Exp>},
+    {TI(ngraph::op::v0::Sin), &runtime::cpu::CPU_Emitter::emit<op::v0::Sin>},
+    {TI(ngraph::op::v0::Sinh), &runtime::cpu::CPU_Emitter::emit<op::v0::Sinh>},
+    {TI(ngraph::op::v0::Cos), &runtime::cpu::CPU_Emitter::emit<op::v0::Cos>},
+    {TI(ngraph::op::v0::Cosh), &runtime::cpu::CPU_Emitter::emit<op::v0::Cosh>},
+    {TI(ngraph::op::v0::CumSum), &runtime::cpu::CPU_Emitter::emit<op::v0::CumSum>},
+    {TI(ngraph::op::v0::Tan), &runtime::cpu::CPU_Emitter::emit<op::v0::Tan>},
+    {TI(ngraph::op::v0::Tanh), &runtime::cpu::CPU_Emitter::emit<op::v0::Tanh>},
+    {TI(ngraph::op::v0::TopK), &runtime::cpu::CPU_Emitter::emit<op::v0::TopK>},
+    {TI(ngraph::op::v0::Asin), &runtime::cpu::CPU_Emitter::emit<op::v0::Asin>},
+    {TI(ngraph::op::v0::ArgMin), &runtime::cpu::CPU_Emitter::emit<op::v0::ArgMin>},
+    {TI(ngraph::op::v0::ArgMax), &runtime::cpu::CPU_Emitter::emit<op::v0::ArgMax>},
+    {TI(ngraph::op::v0::Acos), &runtime::cpu::CPU_Emitter::emit<op::v0::Acos>},
+    {TI(ngraph::op::v0::Atan), &runtime::cpu::CPU_Emitter::emit<op::v0::Atan>},
+    {TI(ngraph::op::v0::Atan2), &runtime::cpu::CPU_Emitter::emit<op::v0::Atan2>},
+    {TI(ngraph::op::v3::Asinh), &runtime::cpu::CPU_Emitter::emit<op::v3::Asinh>},
+    {TI(ngraph::op::v3::Acosh), &runtime::cpu::CPU_Emitter::emit<op::v3::Acosh>},
+    {TI(ngraph::op::v3::Atanh), &runtime::cpu::CPU_Emitter::emit<op::v3::Atanh>},
+    {TI(ngraph::op::v0::ReplaceSlice), &runtime::cpu::CPU_Emitter::emit<op::v0::ReplaceSlice>},
     {TI(ngraph::op::UpdateSlice), &runtime::cpu::CPU_Emitter::emit<op::UpdateSlice>},
-    {TI(ngraph::op::OneHot), &runtime::cpu::CPU_Emitter::emit<op::OneHot>},
-    {TI(ngraph::op::Floor), &runtime::cpu::CPU_Emitter::emit<op::Floor>},
-    {TI(ngraph::op::Ceiling), &runtime::cpu::CPU_Emitter::emit<op::Ceiling>},
-    {TI(ngraph::op::Sqrt), &runtime::cpu::CPU_Emitter::emit<op::Sqrt>},
-    {TI(ngraph::op::Convolution), &runtime::cpu::CPU_Emitter::emit<op::Convolution>},
-    {TI(ngraph::op::ConvolutionBackpropFilters),
-     &runtime::cpu::CPU_Emitter::emit<op::ConvolutionBackpropFilters>},
-    {TI(ngraph::op::ConvolutionBackpropData),
-     &runtime::cpu::CPU_Emitter::emit<op::ConvolutionBackpropData>},
-    {TI(ngraph::op::GroupConvolution), &runtime::cpu::CPU_Emitter::emit<op::GroupConvolution>},
-    {TI(ngraph::op::ConvolutionBias), &runtime::cpu::CPU_Emitter::emit<op::ConvolutionBias>},
-    {TI(ngraph::op::QuantizedConvolutionBias),
-     &runtime::cpu::CPU_Emitter::emit<op::QuantizedConvolutionBias>},
-    {TI(ngraph::op::QuantizedConvolutionBiasAdd),
-     &runtime::cpu::CPU_Emitter::emit<op::QuantizedConvolutionBiasAdd>},
-    {TI(ngraph::op::QuantizedConvolutionBiasSignedAdd),
-     &runtime::cpu::CPU_Emitter::emit<op::QuantizedConvolutionBiasSignedAdd>},
-    {TI(ngraph::op::QuantizedDotBias), &runtime::cpu::CPU_Emitter::emit<op::QuantizedDotBias>},
-    {TI(ngraph::op::QuantizedDot), &runtime::cpu::CPU_Emitter::emit<op::QuantizedDot>},
+    {TI(ngraph::op::v0::OneHot), &runtime::cpu::CPU_Emitter::emit<op::v0::OneHot>},
+    {TI(ngraph::op::v0::Floor), &runtime::cpu::CPU_Emitter::emit<op::v0::Floor>},
+    {TI(ngraph::op::v0::Ceiling), &runtime::cpu::CPU_Emitter::emit<op::v0::Ceiling>},
+    {TI(ngraph::op::v0::Sqrt), &runtime::cpu::CPU_Emitter::emit<op::v0::Sqrt>},
+    {TI(ngraph::op::v0::Convolution), &runtime::cpu::CPU_Emitter::emit<op::v0::Convolution>},
+    {TI(ngraph::op::v0::ConvolutionBackpropFilters),
+     &runtime::cpu::CPU_Emitter::emit<op::v0::ConvolutionBackpropFilters>},
+    {TI(ngraph::op::v0::ConvolutionBackpropData),
+     &runtime::cpu::CPU_Emitter::emit<op::v0::ConvolutionBackpropData>},
+    {TI(ngraph::op::v0::GroupConvolution),
+     &runtime::cpu::CPU_Emitter::emit<op::v0::GroupConvolution>},
+    {TI(ngraph::op::v0::ConvolutionBias),
+     &runtime::cpu::CPU_Emitter::emit<op::v0::ConvolutionBias>},
+    {TI(ngraph::op::v0::QuantizedConvolutionBias),
+     &runtime::cpu::CPU_Emitter::emit<op::v0::QuantizedConvolutionBias>},
+    {TI(ngraph::op::v0::QuantizedConvolutionBiasAdd),
+     &runtime::cpu::CPU_Emitter::emit<op::v0::QuantizedConvolutionBiasAdd>},
+    {TI(ngraph::op::v0::QuantizedConvolutionBiasSignedAdd),
+     &runtime::cpu::CPU_Emitter::emit<op::v0::QuantizedConvolutionBiasSignedAdd>},
+    {TI(ngraph::op::v0::QuantizedDotBias),
+     &runtime::cpu::CPU_Emitter::emit<op::v0::QuantizedDotBias>},
+    {TI(ngraph::op::v0::QuantizedDot), &runtime::cpu::CPU_Emitter::emit<op::v0::QuantizedDot>},
     {TI(ngraph::op::QuantizedMatmul), &runtime::cpu::CPU_Emitter::emit<op::QuantizedMatmul>},
     {TI(ngraph::op::ConvolutionRelu), &runtime::cpu::CPU_Emitter::emit<op::ConvolutionRelu>},
-    {TI(ngraph::op::QuantizedConvolution),
-     &runtime::cpu::CPU_Emitter::emit<op::QuantizedConvolution>},
-    {TI(ngraph::op::QuantizedConvolutionRelu),
-     &runtime::cpu::CPU_Emitter::emit<op::QuantizedConvolutionRelu>},
-    {TI(ngraph::op::ConvolutionBiasAdd), &runtime::cpu::CPU_Emitter::emit<op::ConvolutionBiasAdd>},
+    {TI(ngraph::op::v0::QuantizedConvolution),
+     &runtime::cpu::CPU_Emitter::emit<op::v0::QuantizedConvolution>},
+    {TI(ngraph::op::v0::QuantizedConvolutionRelu),
+     &runtime::cpu::CPU_Emitter::emit<op::v0::QuantizedConvolutionRelu>},
+    {TI(ngraph::op::v0::ConvolutionBiasAdd),
+     &runtime::cpu::CPU_Emitter::emit<op::v0::ConvolutionBiasAdd>},
     // conv+bias backprop for data share the same implementation as ConvolutionBackpropData
-    {TI(ngraph::op::ConvolutionBiasBackpropFiltersBias),
-     &runtime::cpu::CPU_Emitter::emit<op::ConvolutionBiasBackpropFiltersBias>},
+    {TI(ngraph::op::v0::ConvolutionBiasBackpropFiltersBias),
+     &runtime::cpu::CPU_Emitter::emit<op::v0::ConvolutionBiasBackpropFiltersBias>},
     {TI(ngraph::runtime::cpu::op::ConvertLayout),
      &runtime::cpu::CPU_Emitter::emit<runtime::cpu::op::ConvertLayout>},
-    {TI(ngraph::op::Not), &runtime::cpu::CPU_Emitter::emit<op::Not>},
-    {TI(ngraph::op::MaxPool), &runtime::cpu::CPU_Emitter::emit<op::MaxPool>},
+    {TI(ngraph::op::v1::LogicalNot), &runtime::cpu::CPU_Emitter::emit<op::v1::LogicalNot>},
+    {TI(ngraph::op::v0::MaxPool), &runtime::cpu::CPU_Emitter::emit<op::v0::MaxPool>},
     {TI(ngraph::op::MaxPoolWithIndices), &runtime::cpu::CPU_Emitter::emit<op::MaxPoolWithIndices>},
-    {TI(ngraph::op::Reverse), &runtime::cpu::CPU_Emitter::emit<op::Reverse>},
-    {TI(ngraph::op::ReverseSequence), &runtime::cpu::CPU_Emitter::emit<op::ReverseSequence>},
-    {TI(ngraph::op::Result), &runtime::cpu::CPU_Emitter::emit<op::Result>},
-    {TI(ngraph::op::AvgPool), &runtime::cpu::CPU_Emitter::emit<op::AvgPool>},
-    {TI(ngraph::op::AvgPoolBackprop), &runtime::cpu::CPU_Emitter::emit<op::AvgPoolBackprop>},
-    {TI(ngraph::op::Pad), &runtime::cpu::CPU_Emitter::emit<op::Pad>},
-    {TI(ngraph::op::BatchNormTraining), &runtime::cpu::CPU_Emitter::emit<op::BatchNormTraining>},
-    {TI(ngraph::op::BatchNormInference), &runtime::cpu::CPU_Emitter::emit<op::BatchNormInference>},
+    {TI(ngraph::op::v0::Reverse), &runtime::cpu::CPU_Emitter::emit<op::v0::Reverse>},
+    {TI(ngraph::op::v0::ReverseSequence),
+     &runtime::cpu::CPU_Emitter::emit<op::v0::ReverseSequence>},
+    {TI(ngraph::op::v0::Result), &runtime::cpu::CPU_Emitter::emit<op::v0::Result>},
+    {TI(ngraph::op::v0::AvgPool), &runtime::cpu::CPU_Emitter::emit<op::v0::AvgPool>},
+    {TI(ngraph::op::v0::AvgPoolBackprop),
+     &runtime::cpu::CPU_Emitter::emit<op::v0::AvgPoolBackprop>},
+    {TI(ngraph::op::v0::Pad), &runtime::cpu::CPU_Emitter::emit<op::v0::Pad>},
+    {TI(ngraph::op::v0::BatchNormTraining),
+     &runtime::cpu::CPU_Emitter::emit<op::v0::BatchNormTraining>},
+    {TI(ngraph::op::v0::BatchNormInference),
+     &runtime::cpu::CPU_Emitter::emit<op::v0::BatchNormInference>},
     {TI(ngraph::op::BatchNormTrainingRelu),
      &runtime::cpu::CPU_Emitter::emit<op::BatchNormTrainingRelu>},
     {TI(ngraph::op::BatchNormInferenceRelu),
      &runtime::cpu::CPU_Emitter::emit<op::BatchNormInferenceRelu>},
-    {TI(ngraph::op::BatchNormTrainingBackprop),
-     &runtime::cpu::CPU_Emitter::emit<op::BatchNormTrainingBackprop>},
+    {TI(ngraph::op::v0::BatchNormTrainingBackprop),
+     &runtime::cpu::CPU_Emitter::emit<op::v0::BatchNormTrainingBackprop>},
     {TI(ngraph::op::BoundedRelu), &runtime::cpu::CPU_Emitter::emit<op::BoundedRelu>},
     {TI(ngraph::op::Lstm), &runtime::cpu::CPU_Emitter::emit<op::Lstm>},
-    {TI(ngraph::op::MaxPoolBackprop), &runtime::cpu::CPU_Emitter::emit<op::MaxPoolBackprop>},
+    {TI(ngraph::op::v0::MaxPoolBackprop),
+     &runtime::cpu::CPU_Emitter::emit<op::v0::MaxPoolBackprop>},
     {TI(ngraph::op::MaxPoolWithIndicesBackprop),
      &runtime::cpu::CPU_Emitter::emit<op::MaxPoolWithIndicesBackprop>},
-    {TI(ngraph::op::Product), &runtime::cpu::CPU_Emitter::emit<op::Product>},
-    {TI(ngraph::op::Max), &runtime::cpu::CPU_Emitter::emit<op::Max>},
-    {TI(ngraph::op::Min), &runtime::cpu::CPU_Emitter::emit<op::Min>},
-    {TI(ngraph::op::Relu), &runtime::cpu::CPU_Emitter::emit<op::Relu>},
-    {TI(ngraph::op::ReluBackprop), &runtime::cpu::CPU_Emitter::emit<op::ReluBackprop>},
+    {TI(ngraph::op::v0::Product), &runtime::cpu::CPU_Emitter::emit<op::v0::Product>},
+    {TI(ngraph::op::v0::Max), &runtime::cpu::CPU_Emitter::emit<op::v0::Max>},
+    {TI(ngraph::op::v0::Min), &runtime::cpu::CPU_Emitter::emit<op::v0::Min>},
+    {TI(ngraph::op::v0::Relu), &runtime::cpu::CPU_Emitter::emit<op::v0::Relu>},
+    {TI(ngraph::op::v0::ReluBackprop), &runtime::cpu::CPU_Emitter::emit<op::v0::ReluBackprop>},
     {TI(ngraph::op::Rnn), &runtime::cpu::CPU_Emitter::emit<op::Rnn>},
-    {TI(ngraph::op::Sigmoid), &runtime::cpu::CPU_Emitter::emit<op::Sigmoid>},
+    {TI(ngraph::op::v0::Sigmoid), &runtime::cpu::CPU_Emitter::emit<op::v0::Sigmoid>},
     {TI(ngraph::op::SigmoidMultiply), &runtime::cpu::CPU_Emitter::emit<op::SigmoidMultiply>},
-    {TI(ngraph::op::SigmoidMultiplyBackprop),
-     &runtime::cpu::CPU_Emitter::emit<op::SigmoidMultiplyBackprop>},
-    {TI(ngraph::op::Softmax), &runtime::cpu::CPU_Emitter::emit<op::Softmax>},
-    {TI(ngraph::op::SigmoidBackprop), &runtime::cpu::CPU_Emitter::emit<op::SigmoidBackprop>},
-    {TI(ngraph::op::And), &runtime::cpu::CPU_Emitter::emit<op::And>},
-    {TI(ngraph::op::Or), &runtime::cpu::CPU_Emitter::emit<op::Or>},
-    {TI(ngraph::op::Xor), &runtime::cpu::CPU_Emitter::emit<op::Xor>},
+    {TI(ngraph::op::v0::SigmoidMultiplyBackprop),
+     &runtime::cpu::CPU_Emitter::emit<op::v0::SigmoidMultiplyBackprop>},
+    {TI(ngraph::op::v0::Softmax), &runtime::cpu::CPU_Emitter::emit<op::v0::Softmax>},
+    {TI(ngraph::op::v0::SigmoidBackprop),
+     &runtime::cpu::CPU_Emitter::emit<op::v0::SigmoidBackprop>},
+    {TI(ngraph::op::v1::LogicalAnd), &runtime::cpu::CPU_Emitter::emit<op::v1::LogicalAnd>},
+    {TI(ngraph::op::v1::LogicalOr), &runtime::cpu::CPU_Emitter::emit<op::v1::LogicalOr>},
+    {TI(ngraph::op::v1::LogicalXor), &runtime::cpu::CPU_Emitter::emit<op::v1::LogicalXor>},
     {TI(ngraph::op::CPULeakyRelu), &runtime::cpu::CPU_Emitter::emit<op::CPULeakyRelu>},
-    {TI(ngraph::op::CompiledKernel), &runtime::cpu::CPU_Emitter::emit<op::CompiledKernel>},
-    {TI(ngraph::op::LRN), &runtime::cpu::CPU_Emitter::emit<ngraph::op::LRN>},
-    {TI(ngraph::op::GenerateMask), &runtime::cpu::CPU_Emitter::emit<ngraph::op::GenerateMask>},
+    {TI(ngraph::op::v0::CompiledKernel), &runtime::cpu::CPU_Emitter::emit<op::v0::CompiledKernel>},
+    {TI(ngraph::op::v0::LRN), &runtime::cpu::CPU_Emitter::emit<ngraph::op::v0::LRN>},
+    {TI(ngraph::op::v0::GenerateMask),
+     &runtime::cpu::CPU_Emitter::emit<ngraph::op::v0::GenerateMask>},
     {TI(ngraph::op::ConvolutionAdd), &runtime::cpu::CPU_Emitter::emit<op::ConvolutionAdd>},
-    {TI(ngraph::op::Quantize), &runtime::cpu::CPU_Emitter::emit<ngraph::op::Quantize>},
-    {TI(ngraph::op::Dequantize), &runtime::cpu::CPU_Emitter::emit<ngraph::op::Dequantize>},
+    {TI(ngraph::op::v0::Quantize), &runtime::cpu::CPU_Emitter::emit<ngraph::op::v0::Quantize>},
+    {TI(ngraph::op::v0::Dequantize), &runtime::cpu::CPU_Emitter::emit<ngraph::op::v0::Dequantize>},
     {TI(ngraph::op::GroupConvolutionBias),
      &runtime::cpu::CPU_Emitter::emit<op::GroupConvolutionBias>},
     {TI(ngraph::op::DeconvolutionBias),
      &runtime::cpu::CPU_Emitter::emit<ngraph::op::DeconvolutionBias>},
     {TI(ngraph::op::Dropout), &runtime::cpu::CPU_Emitter::emit<op::Dropout>},
-    {TI(ngraph::op::Tile), &runtime::cpu::CPU_Emitter::emit<op::Tile>},
-    {TI(ngraph::op::Gelu), &runtime::cpu::CPU_Emitter::emit<op::Gelu>},
-    {TI(ngraph::op::GeluBackprop), &runtime::cpu::CPU_Emitter::emit<op::GeluBackprop>},
-    {TI(ngraph::op::Round), &runtime::cpu::CPU_Emitter::emit<op::Round>}};
+    {TI(ngraph::op::v0::Tile), &runtime::cpu::CPU_Emitter::emit<op::v0::Tile>},
+    {TI(ngraph::op::v0::Gelu), &runtime::cpu::CPU_Emitter::emit<op::v0::Gelu>},
+    {TI(ngraph::op::v0::RandomUniform), &runtime::cpu::CPU_Emitter::emit<op::v0::RandomUniform>},
+    {TI(ngraph::op::v0::GeluBackprop), &runtime::cpu::CPU_Emitter::emit<op::v0::GeluBackprop>},
+    {TI(ngraph::op::v0::Round), &runtime::cpu::CPU_Emitter::emit<op::v0::Round>}};
 
 static void generate_isnan_isinf_check(CodeWriter& writer,
                                        std::shared_ptr<Node> node,
                                        const std::vector<ngraph::runtime::cpu::TensorWrapper>& out,
                                        const char* funcname)
 {
-    auto ctype = node->get_element_type().c_type_string();
+    auto ctype = node->get_output_element_type(0).c_type_string();
     writer << "{   // A " << funcname << " for" << node->get_name() << "\n";
     writer.indent++;
     writer << " ngraph::check_fp_values<" << ctype << "," << funcname << "> (\"" << node->get_name()
@@ -487,19 +498,20 @@ static void generate_runtime_context_class(CodeWriter& writer)
 
 void runtime::cpu::CPU_ExternalFunction::compile(ngraph::pass::PassConfig& pass_config)
 {
+    NGRAPH_INFO;
     if (m_is_compiled)
     {
         return;
     }
 
-    m_mkldnn_emitter.reset(new MKLDNNEmitter());
+    m_dnnl_emitter.reset(new DNNLEmitter());
 
     ngraph::pass::Manager pass_manager;
     register_common_passes(pass_manager, pass_config);
 
-    // Build mkldnn primitives for codegen.
-    pass_manager.register_pass<runtime::cpu::pass::MKLDNNPrimitiveBuildPass>(
-        m_desc_filename, *m_mkldnn_emitter, m_node_primitive_string_deps_index_size_map);
+    // Build dnnl primitives for codegen.
+    pass_manager.register_pass<runtime::cpu::pass::DNNLPrimitiveBuildPass>(
+        m_desc_filename, *m_dnnl_emitter, m_node_primitive_string_deps_index_size_map);
 
     unordered_map<Node*, Node*> node_function_map;
     string common_function_string;
@@ -510,6 +522,11 @@ void runtime::cpu::CPU_ExternalFunction::compile(ngraph::pass::PassConfig& pass_
     pass_manager.register_pass<ngraph::pass::CommonFunctionCollection>(
         femitter, node_function_map, common_function_string);
     pass_manager.run_passes(m_function);
+
+    for (shared_ptr<Node> op : m_function->get_ordered_ops())
+    {
+        NGRAPH_INFO << *op;
+    }
 
     auto ordered_ops = m_function->get_ordered_ops();
 
@@ -529,11 +546,21 @@ void runtime::cpu::CPU_ExternalFunction::compile(ngraph::pass::PassConfig& pass_
     }
 #endif
 
+// Any #ifdef in cpu_runtime_context.hpp MUST be included in here or the CPURuntimeContext
+// structure in the codegen code will be different from the cpu backend compiled version and
+// mayhem will ensue
+#if defined(NGRAPH_TBB_ENABLE)
+    writer += "#define NGRAPH_TBB_ENABLE\n";
+#endif
+#if defined(NGRAPH_CPU_MLIR_ENABLE)
+    writer += "#define NGRAPH_CPU_MLIR_ENABLE\n";
+#endif
+
     writer +=
         R"(
 #include <cmath>
+#include <dnnl.hpp>
 #include <fstream>
-#include <mkldnn.hpp>
 #include "ngraph/distributed.hpp"
 #include "ngraph/except.hpp"
 #include "ngraph/runtime/aligned_buffer.hpp"
@@ -541,8 +568,8 @@ void runtime::cpu::CPU_ExternalFunction::compile(ngraph::pass::PassConfig& pass_
 #include "ngraph/runtime/cpu/cpu_executor.hpp"
 #include "ngraph/runtime/cpu/cpu_kernels.hpp"
 #include "ngraph/runtime/cpu/cpu_runtime_context.hpp"
-#include "ngraph/runtime/cpu/mkldnn_invoke.hpp"
-#include "ngraph/runtime/cpu/mkldnn_utils.hpp"
+#include "ngraph/runtime/cpu/dnnl_invoke.hpp"
+#include "ngraph/runtime/cpu/dnnl_utils.hpp"
 #include "ngraph/runtime/reference/all.hpp"
 #include "ngraph/runtime/reference/and.hpp"
 #include "ngraph/runtime/reference/any.hpp"
@@ -553,6 +580,7 @@ void runtime::cpu::CPU_ExternalFunction::compile(ngraph::pass::PassConfig& pass_
 #include "ngraph/runtime/reference/broadcast.hpp"
 #include "ngraph/runtime/reference/concat.hpp"
 #include "ngraph/runtime/reference/convolution.hpp"
+#include "ngraph/runtime/reference/copy.hpp"
 #include "ngraph/runtime/reference/cum_sum.hpp"
 #include "ngraph/runtime/reference/dequantize.hpp"
 #include "ngraph/runtime/reference/dot.hpp"
@@ -570,12 +598,14 @@ void runtime::cpu::CPU_ExternalFunction::compile(ngraph::pass::PassConfig& pass_
 #include "ngraph/runtime/reference/pad.hpp"
 #include "ngraph/runtime/reference/product.hpp"
 #include "ngraph/runtime/reference/quantize.hpp"
+#include "ngraph/runtime/reference/random_uniform.hpp"
 #include "ngraph/runtime/reference/relu.hpp"
 #include "ngraph/runtime/reference/replace_slice.hpp"
 #include "ngraph/runtime/reference/reshape.hpp"
 #include "ngraph/runtime/reference/result.hpp"
 #include "ngraph/runtime/reference/reverse.hpp"
 #include "ngraph/runtime/reference/reverse_sequence.hpp"
+#include "ngraph/runtime/reference/round.hpp"
 #include "ngraph/runtime/reference/scatter_add.hpp"
 #include "ngraph/runtime/reference/scatter_nd_add.hpp"
 #include "ngraph/runtime/reference/slice.hpp"
@@ -589,6 +619,7 @@ void runtime::cpu::CPU_ExternalFunction::compile(ngraph::pass::PassConfig& pass_
 
 using namespace ngraph::runtime::cpu::eigen;
 using namespace ngraph::runtime;
+using namespace ngraph;
 
 )";
 
@@ -655,16 +686,16 @@ using namespace ngraph::runtime;
     writer << "// Declare all constants\n";
     for (shared_ptr<Node> node : ordered_ops)
     {
-        ngraph::op::Constant* c = as_type<ngraph::op::Constant>(node.get());
+        ngraph::op::v0::Constant* c = as_type<ngraph::op::v0::Constant>(node.get());
         if (c)
         {
             m_active_constants.push_back(node);
-            shared_ptr<descriptor::Tensor> tv = node->get_outputs()[0].get_tensor_ptr();
-            string type = tv->get_element_type().c_type_string();
-            writer << "static " << type << "* " << tv->get_name() << " = ((" << type << "*)("
+            const descriptor::Tensor& tv = node->get_output_tensor(0);
+            string type = tv.get_element_type().c_type_string();
+            writer << "static " << type << "* " << tv.get_name() << " = ((" << type << "*)("
                    << c->get_data_ptr() << "));\n";
 
-            auto output_tensor = &node->get_output_tensor();
+            auto output_tensor = &node->get_output_tensor(0);
             auto tensor_set = get_tensor_set(output_tensor);
             // process all tensors in the set containing the output tensor of the constant
             for (auto& ele_t : tensor_set)
@@ -692,16 +723,16 @@ using namespace ngraph::runtime;
 
     writer << common_function_string << "\n";
 
-    // initiate mkldnn_primitives for CPURuntimeContextCG
-    writer << "void inline CPURuntimeContextCG::init_mkldnn_primitives()\n";
+    // initiate dnnl_primitives for CPURuntimeContextCG
+    writer << "void inline CPURuntimeContextCG::init_dnnl_primitives()\n";
     writer.block_begin();
-    writer << "mkldnn_primitives = std::vector<mkldnn::primitive*>("
-           << to_string(m_mkldnn_emitter->get_mkldnn_primitives().size()) << ");\n";
-    writer << "mkldnn_memories = std::vector<mkldnn::memory*>("
-           << to_string(m_mkldnn_emitter->get_mkldnn_memories().size()) << ");\n";
-    writer << "mkldnn_scratchpad_mds = std::vector<mkldnn::memory::desc*>("
-           << to_string(m_mkldnn_emitter->get_mkldnn_scratchpad_mds().size()) << ");\n";
-    writer << "size_t scratchpad_size = " << m_mkldnn_emitter->get_max_scratchpad_size() << ";\n";
+    writer << "dnnl_primitives = std::vector<dnnl::primitive*>("
+           << to_string(m_dnnl_emitter->get_dnnl_primitives().size()) << ");\n";
+    writer << "dnnl_memories = std::vector<dnnl::memory*>("
+           << to_string(m_dnnl_emitter->get_dnnl_memories().size()) << ");\n";
+    writer << "dnnl_scratchpad_mds = std::vector<dnnl::memory::desc*>("
+           << to_string(m_dnnl_emitter->get_dnnl_scratchpad_mds().size()) << ");\n";
+    writer << "size_t scratchpad_size = " << m_dnnl_emitter->get_max_scratchpad_size() << ";\n";
     writer << "if (scratchpad_size > 0)\n";
     writer.block_begin();
     writer << "size_t alignment = 4096;\n";
@@ -717,16 +748,16 @@ using namespace ngraph::runtime;
     set<string> output_names;
     for (shared_ptr<Node> op : m_function->get_results())
     {
-        shared_ptr<descriptor::Tensor> tv = op->get_output_tensor_ptr();
+        shared_ptr<descriptor::Tensor> tv = op->get_output_tensor_ptr(0);
         output_names.insert(tv->get_name());
     }
     set<descriptor::Tensor*> constants;
     for (shared_ptr<Node> node : ordered_ops)
     {
-        if (is_type<ngraph::op::Constant>(node))
+        if (is_type<ngraph::op::v0::Constant>(node))
         {
-            shared_ptr<descriptor::Tensor> tv = node->get_outputs()[0].get_tensor_ptr();
-            constants.insert(tv.get());
+            descriptor::Tensor& tv = node->get_output_tensor(0);
+            constants.insert(&tv);
         }
     }
 
@@ -751,11 +782,10 @@ using namespace ngraph::runtime;
     {
         if (!node->is_parameter() && !node->is_constant())
         {
-            for (const descriptor::Input& input : node->get_inputs())
+            for (auto input : node->inputs())
             {
-                const descriptor::Output& output = input.get_output();
-                shared_ptr<descriptor::Tensor> tv = output.get_tensor_ptr();
-                tensor_index_map.insert({tv->get_name(), tensor_index++});
+                const descriptor::Tensor& tv = input.get_tensor();
+                tensor_index_map.insert({tv.get_name(), tensor_index++});
             }
         }
     }
@@ -766,15 +796,15 @@ using namespace ngraph::runtime;
     writer << "{\n";
     writer.indent++;
 
-    // deserialize and build mkldnn primitives
-    if (m_mkldnn_emitter->get_mkldnn_descriptors_size() > 0)
+    // deserialize and build dnnl primitives
+    if (m_dnnl_emitter->get_dnnl_descriptors_size() > 0)
     {
         writer << "if (ctx->first_iteration)\n";
         writer.block_begin();
-        writer << "// read in memory descriptors and build mkldnn primitives\n";
+        writer << "// read in memory descriptors and build dnnl primitives\n";
         writer << "std::ifstream desc_file (\"" << m_desc_filename << "\", std::ios::binary);\n";
         writer << "deserialize_memory_descs_and_build_memory(" << m_desc_filename << ", cg_ctx, "
-               << to_string(m_mkldnn_emitter->get_mkldnn_descriptors_size()) << ");\n";
+               << to_string(m_dnnl_emitter->get_dnnl_descriptors_size()) << ");\n";
         writer.block_end();
     }
 
@@ -809,13 +839,13 @@ using namespace ngraph::runtime;
 
     // Add inputs to the variable name map
     size_t arg_index = 0;
-    for (shared_ptr<ngraph::op::Parameter> param : m_function->get_parameters())
+    for (shared_ptr<ngraph::op::v0::Parameter> param : m_function->get_parameters())
     {
         for (size_t i = 0; i < param->get_output_size(); ++i)
         {
-            auto output_tensor = &param->get_outputs().at(i).get_tensor();
-            param_index_map[output_tensor->get_name()] = arg_index;
-            auto tensor_set = get_tensor_set(output_tensor);
+            descriptor::Tensor& output_tensor = param->get_output_tensor(i);
+            param_index_map[output_tensor.get_name()] = arg_index;
+            auto tensor_set = get_tensor_set(&output_tensor);
 
             // process all tensors in the set containing the output tensor of the parameter
             for (auto& ele_t : tensor_set)
@@ -855,7 +885,7 @@ using namespace ngraph::runtime;
     for (size_t i = 0; i < m_function->get_output_size(); ++i)
     {
         shared_ptr<Node> op = m_function->get_output_op(i);
-        auto output_tensor = &op->get_output_tensor();
+        auto output_tensor = &op->get_output_tensor(0);
         auto tensor_set = get_tensor_set(output_tensor);
         // process all tensors in the set containing the output tensor of the result
         for (auto& ele_t : tensor_set)
@@ -884,17 +914,16 @@ using namespace ngraph::runtime;
         vector<string> node_output_names;
         vector<TensorTracerAttributes> t_in_attrs;
         vector<TensorTracerAttributes> t_out_attrs;
-        for (const descriptor::Input& input : node->get_inputs())
+        for (Input<Node> input : node->inputs())
         {
-            const descriptor::Output& output = input.get_output();
-            shared_ptr<descriptor::Tensor> tv = output.get_tensor_ptr();
+            shared_ptr<descriptor::Tensor> tv = input.get_tensor_ptr();
             in.push_back(TensorWrapper(tv, m_variable_name_map[tv->get_name()]));
             node_input_names.emplace_back(tv->get_name());
             t_in_attrs.push_back(TensorTracerAttributes(
                 in.back().get_size(), in.back().get_shape(), in.back().get_element_type()));
         }
         vector<TensorWrapper> out;
-        for (const descriptor::Output& output : node->get_outputs())
+        for (Output<Node> output : node->outputs())
         {
             shared_ptr<descriptor::Tensor> tv = output.get_tensor_ptr();
             out.push_back(TensorWrapper(tv, m_variable_name_map[tv->get_name()]));
@@ -914,6 +943,7 @@ using namespace ngraph::runtime;
                                         t_out_attrs,
                                         t_in_attrs);
             }
+#if defined(NGRAPH_TBB_ENABLE)
             if (m_use_tbb)
             {
                 writer << "tbb::flow::continue_node<tbb::flow::continue_msg>* "
@@ -923,6 +953,7 @@ using namespace ngraph::runtime;
                           "(*(cg_ctx->tbb_graph), [&](const tbb::flow::continue_msg &msg)\n{\n";
                 writer.indent++;
             }
+#endif
             if (runtime::cpu::IsTracingEnabled() && m_function->get_name() == m_function_name)
             {
                 writer << "start_ts = cpu::Clock::now();\n";
@@ -948,11 +979,11 @@ using namespace ngraph::runtime;
         // Op Control
         if (!node->is_parameter() && !node->is_constant())
         {
-            writer << "if (ctx->first_iteration ";
-            for (const descriptor::Input& input : node->get_inputs())
+            writer << "if (ctx->first_iteration";
+            for (Input<Node> input : node->inputs())
             {
-                const descriptor::Output& output = input.get_output();
-                shared_ptr<descriptor::Tensor> tv = output.get_tensor_ptr();
+                Output<Node> output = input.get_source_output();
+                shared_ptr<descriptor::Tensor> tv = input.get_tensor_ptr();
                 auto input_name = tv->get_name();
 
                 if (output.get_node()->is_parameter())
@@ -973,7 +1004,7 @@ using namespace ngraph::runtime;
             {
                 writer << " || 1";
             }
-            writer << ") {\n";
+            writer << ")\n{\n";
             writer.indent++;
         }
 
@@ -998,10 +1029,10 @@ using namespace ngraph::runtime;
             writer << func_name << "(" << join(names) << ", ctx, cg_ctx);\n";
         }
 
-        // skip multi-output nodes since they would be covered by GetOutputElement
         if (node->get_output_size() == 1 &&
             // skip non-FP nodes
-            (node->get_element_type() == element::f32 || node->get_element_type() == element::f64))
+            (node->get_output_element_type(0) == element::f32 ||
+             node->get_output_element_type(0) == element::f64))
         {
             // check inputs and constants?
             if ((!node->is_parameter() && !node->is_constant()) ||
@@ -1027,7 +1058,7 @@ using namespace ngraph::runtime;
                 writer << "t_en[" << tensor_index_map[output_name] << "] = true;\n";
             }
             writer.indent--;
-            writer << "} else {\n";
+            writer << "}\nelse\n{\n";
             writer.indent++;
             for (auto output_name : node_output_names)
             {
@@ -1096,9 +1127,9 @@ using namespace ngraph::runtime;
     writer += "}\n\n";
 
     // TODO: Cleanup and make this a utility function
-    string filename = file_util::path_join(s_output_dir, m_function_name + "_codegen.cpp");
+    string filename = file_util::path_join(s_debug_dir, m_function_name + "_codegen.cpp");
     string code = writer.get_code();
-    runtime::cpu::CPU_ExternalFunction::write_to_file(writer.get_code(), s_output_dir, filename);
+    runtime::cpu::CPU_ExternalFunction::write_to_file(writer.get_code(), s_debug_dir, filename);
 
     m_compiler.reset(new codegen::Compiler());
     m_execution_engine.reset(new codegen::ExecutionEngine());
@@ -1173,13 +1204,13 @@ using namespace ngraph::runtime;
     }
 
     m_is_compiled = true;
-    if (m_release_function && !m_emit_timing)
+    if (!m_emit_timing)
     {
         release_function();
     }
 }
 
-#endif // !defined(NGRAPH_DEX_ONLY)
+#endif // defined(CODEGEN_ENABLE)
 
 void runtime::cpu::CPU_ExternalFunction::register_common_passes(
     ngraph::pass::Manager& pass_manager, ngraph::pass::PassConfig& pass_config)
@@ -1187,18 +1218,18 @@ void runtime::cpu::CPU_ExternalFunction::register_common_passes(
     auto pass_map = pass_config.get_enables();
 
     auto dex = is_direct_execution();
-    auto is_supported = [dex](const Node& node) {
-#ifdef NGRAPH_MLIR_ENABLE
-        if (getenv_bool("NGRAPH_MLIR") && getenv_bool("NGRAPH_MLIR_CALLBACK"))
+    auto is_supported = [dex, this](const Node& node) {
+#ifdef NGRAPH_CPU_MLIR_ENABLE
+        if ((m_execution_mode == EXECUTION_MODE::MLIR) && getenv_bool("NGRAPH_MLIR_CALLBACK"))
         {
-            if (typeid(ngraph::op::MatMul) == typeid(node) &&
+            if (typeid(ngraph::op::v0::MatMul) == typeid(node) &&
                 node.get_input_element_type(0) == element::f32 &&
                 node.get_input_shape(0).size() == 2 && node.get_input_shape(1).size() == 2)
             {
                 return true;
             }
 
-            if (typeid(ngraph::op::Gemm) == typeid(node) &&
+            if (typeid(ngraph::op::v0::Gemm) == typeid(node) &&
                 node.get_input_element_type(0) == element::f32 &&
                 node.get_input_shape(0).size() == 2 && node.get_input_shape(1).size() == 2)
             {
@@ -1209,34 +1240,27 @@ void runtime::cpu::CPU_ExternalFunction::register_common_passes(
         // this checks averts the decomposition of LSTMCell
         // we will map LSTMCell to LSTM CPU op in the later
         // graph pass
-        if (typeid(ngraph::op::LSTMCell) == typeid(node))
+        if (typeid(ngraph::op::v0::LSTMCell) == typeid(node))
         {
-            // MKLDNN version < 1.0 doesnt support peephole for LSTM, we will skip if the LSTMCell
+            // DNNL version < 1.0 doesnt support peephole for LSTM, we will skip if the LSTMCell
             // has peephole. LSTMCell with no peephole support is constant initialized to zero
-            // TODO (pthoreho) : For MKLDNN > V1.0, change mkldnn kernel integration to compute for
-            // LSTMCell
-            // with peephole as well.
-            if (is_type<ngraph::op::Constant>(node.get_argument(6)))
-            {
-                return true;
-            }
-            else
-            {
-                return false;
-            }
+            // TODO (pthoreho) : For DNNL > V1.0, change dnnl kernel integration to compute for
+            // LSTMCell with peephole as well.
+            // Not supported on codegen
+            return m_direct_execution && is_type<ngraph::op::v0::Constant>(node.get_argument(6));
         }
-        else if (typeid(ngraph::op::GeluBackpropFactor) == typeid(node))
+        else if (typeid(ngraph::op::v0::GeluBackpropFactor) == typeid(node))
         {
             return false;
         }
-        else if (typeid(ngraph::op::Gelu) == typeid(node))
+        else if (typeid(ngraph::op::v0::Gelu) == typeid(node))
         {
             return false;
         }
-        // GroupConvolution is only supported with MKLDNN
-        else if (auto conv = as_type<ngraph::op::GroupConvolution>(const_cast<Node*>(&node)))
+        // GroupConvolution is only supported with DNNL
+        else if (auto conv = as_type<ngraph::op::v0::GroupConvolution>(const_cast<Node*>(&node)))
         {
-            return mkldnn_utils::can_use_mkldnn_conv<ngraph::op::GroupConvolution>(conv);
+            return dnnl_utils::can_use_dnnl_conv<ngraph::op::v0::GroupConvolution>(conv);
         }
 
         if (dex)
@@ -1249,7 +1273,7 @@ void runtime::cpu::CPU_ExternalFunction::register_common_passes(
         }
         else
         {
-#if !defined(NGRAPH_DEX_ONLY)
+#if defined(CODEGEN_ENABLE)
             auto handler = dispatcher.find(type_index(typeid(node)));
             if (handler == dispatcher.end())
             {
@@ -1264,8 +1288,8 @@ void runtime::cpu::CPU_ExternalFunction::register_common_passes(
 
     REGISTER_KNOBBED_PASS(LikeReplacement, true, ngraph::pass)
     REGISTER_KNOBBED_PASS_WITH_ARGS(FusedOpDecomposition, true, ngraph::pass, is_supported)
-    REGISTER_KNOBBED_PASS(Opset1Downgrade, true, ngraph::pass)
-    REGISTER_KNOBBED_PASS(Opset0Downgrade, true, ngraph::pass)
+    REGISTER_KNOBBED_PASS(ConvertOpset3To1, true, ngraph::pass)
+    REGISTER_KNOBBED_PASS(ConvertOpset1To0, true, ngraph::pass)
     REGISTER_KNOBBED_PASS(ImplicitBroadcastElimination, true, ngraph::pass)
     REGISTER_KNOBBED_PASS(NopElimination, true, ngraph::pass)
     REGISTER_KNOBBED_PASS(ZeroDimTensorElimination, true, ngraph::pass)
@@ -1286,26 +1310,26 @@ void runtime::cpu::CPU_ExternalFunction::register_common_passes(
     REGISTER_KNOBBED_PASS(CPUPreFusion, true, runtime::cpu::pass)
 
 // Disable CPUFusion if MLIR is enabled to preserve core ops.
-#ifdef NGRAPH_MLIR_ENABLE
-    if (!getenv_bool("NGRAPH_MLIR"))
+#ifdef NGRAPH_CPU_MLIR_ENABLE
+    if (m_execution_mode != EXECUTION_MODE::MLIR)
     {
 #endif
         REGISTER_KNOBBED_PASS(CPUFusion, true, runtime::cpu::pass)
-#ifdef NGRAPH_MLIR_ENABLE
+#ifdef NGRAPH_CPU_MLIR_ENABLE
     }
 #endif
     REGISTER_KNOBBED_PASS(CPUQuantFusion, true, runtime::cpu::pass)
     REGISTER_KNOBBED_PASS(CPUHorizontalFusion, true, runtime::cpu::pass)
     REGISTER_KNOBBED_PASS(CPUCollapseDims, true, runtime::cpu::pass)
 
-#ifdef NGRAPH_MLIR_ENABLE
-    if (getenv_bool("NGRAPH_MLIR"))
+#ifdef NGRAPH_CPU_MLIR_ENABLE
+    if (m_execution_mode == EXECUTION_MODE::MLIR)
     {
         REGISTER_KNOBBED_PASS(MLIRSubgraphExtractionPass, /*enable by default*/ true, ngraph::pass)
     }
 #endif
 
-    NodeVector nv_cwi; // We dont need CPUWorkspaceInsertion to return list of indices
+    OutputVector nv_cwi; // We dont need CPUWorkspaceInsertion to return list of indices
     REGISTER_KNOBBED_PASS_WITH_ARGS(CPUWorkspaceInsertion, true, runtime::cpu::pass, nv_cwi, false)
     REGISTER_KNOBBED_PASS_WITH_ARGS(CPUAssignment, true, runtime::cpu::pass, this)
     REGISTER_KNOBBED_PASS_WITH_ARGS(ConstantFolding, true, ngraph::pass, GetGlobalCFDispatcherCPU())
@@ -1315,7 +1339,6 @@ void runtime::cpu::CPU_ExternalFunction::register_common_passes(
     REGISTER_KNOBBED_PASS(CPUPostLayoutOptimizations, true, runtime::cpu::pass)
     REGISTER_KNOBBED_PASS(CPUConvertLayoutConstantFolding, true, runtime::cpu::pass)
     REGISTER_KNOBBED_PASS(CPUMemoryOptimization, true, runtime::cpu::pass)
-    REGISTER_KNOBBED_PASS(GetOutputElementElimination, false, ngraph::pass)
     REGISTER_KNOBBED_PASS_WITH_ARGS(
         PropagateCacheability, true, ngraph::pass, runtime::cpu::get_annotations_factory())
     bool reuse_memory = pass_config.get_pass_attribute("CPUMemoryAssignment::ReuseMemory") ||
@@ -1448,9 +1471,8 @@ void runtime::cpu::CPU_ExternalFunction::build(ngraph::pass::PassConfig& pass_co
 #endif
 
     // stream writer to dump the debug manifest for the DEX
-    static const string s_debug_dir = "cpu_codegen";
     static StaticInitializers s_static_initializers(s_debug_dir);
-    m_mkldnn_emitter.reset(new MKLDNNEmitter());
+    m_dnnl_emitter.reset(new DNNLEmitter());
     ngraph::pass::Manager pass_manager;
     if (getenv_bool("NGRAPH_ENABLE_VISUALIZE_TRACING"))
     {
@@ -1529,11 +1551,12 @@ void runtime::cpu::CPU_ExternalFunction::build(ngraph::pass::PassConfig& pass_co
     {
         if (node->is_constant())
         {
-            auto output_tensor = &node->get_output_tensor();
+            auto output_tensor = &node->get_output_tensor(0);
             m_buffer_indices[output_tensor->get_name()] = buffer_index;
             constant_tensor_data.emplace_back(
                 buffer_index,
-                const_cast<void*>(static_pointer_cast<ngraph::op::Constant>(node)->get_data_ptr()));
+                const_cast<void*>(
+                    static_pointer_cast<ngraph::op::v0::Constant>(node)->get_data_ptr()));
             auto tensor_set = get_tensor_set(output_tensor);
             // process all tensors in the set containing the output tensor of the constant
             for (auto& ele_t : tensor_set)
@@ -1555,10 +1578,10 @@ void runtime::cpu::CPU_ExternalFunction::build(ngraph::pass::PassConfig& pass_co
     {
         for (size_t i = 0; i < param->get_output_size(); ++i)
         {
-            auto output_tensor = &param->get_outputs().at(i).get_tensor();
-            auto tensor_set = get_tensor_set(output_tensor);
+            descriptor::Tensor& output_tensor = param->get_output_tensor(i);
+            auto tensor_set = get_tensor_set(&output_tensor);
 
-            auto& stale = tensor_stale[output_tensor->get_name()];
+            auto& stale = tensor_stale[output_tensor.get_name()];
             // process all tensors in the set containing the output tensor of the parameter
             for (auto& ele_t : tensor_set)
             {
@@ -1578,7 +1601,7 @@ void runtime::cpu::CPU_ExternalFunction::build(ngraph::pass::PassConfig& pass_co
     for (size_t i = 0; i < m_function->get_output_size(); ++i)
     {
         shared_ptr<Node> op = m_function->get_output_op(i);
-        auto output_tensor = &op->get_output_tensor();
+        auto output_tensor = &op->get_output_tensor(0);
         auto tensor_set = get_tensor_set(output_tensor);
 
         // process all tensors in the set containing the output tensor of the result
@@ -1611,10 +1634,9 @@ void runtime::cpu::CPU_ExternalFunction::build(ngraph::pass::PassConfig& pass_co
         vector<TensorWrapper> in;
         vector<string> in_names;
         vector<TensorTracerAttributes> t_in_attrs;
-        for (const descriptor::Input& input : node->get_inputs())
+        for (Input<Node> input : node->inputs())
         {
-            const descriptor::Output& output = input.get_output();
-            shared_ptr<descriptor::Tensor> tv = output.get_tensor_ptr();
+            shared_ptr<descriptor::Tensor> tv = input.get_tensor_ptr();
             in.push_back(TensorWrapper(tv, tv->get_name()));
             in_names.push_back(tv->get_name());
             t_in_attrs.push_back(TensorTracerAttributes(
@@ -1624,7 +1646,7 @@ void runtime::cpu::CPU_ExternalFunction::build(ngraph::pass::PassConfig& pass_co
         vector<string> out_names;
         vector<TensorTracerAttributes> t_out_attrs;
 
-        for (const descriptor::Output& output : node->get_outputs())
+        for (Output<Node> output : node->outputs())
         {
             shared_ptr<descriptor::Tensor> tv = output.get_tensor_ptr();
             out.push_back(TensorWrapper(tv, tv->get_name()));
@@ -1749,16 +1771,15 @@ void runtime::cpu::CPU_ExternalFunction::build(ngraph::pass::PassConfig& pass_co
             {
                 continue;
             }
-            for (const descriptor::Input& input : node->get_inputs())
+            for (Input<Node> input : node->inputs())
             {
-                const descriptor::Output& output = input.get_output();
-                shared_ptr<descriptor::Tensor> tv = output.get_tensor_ptr();
+                shared_ptr<descriptor::Tensor> tv = input.get_tensor_ptr();
                 temp << &m_buffer_indices[tv->get_name()];
                 node_inputs.push_back(tv->get_name() + "(" + temp.str() + ")");
                 temp.str("");
             }
 
-            for (const descriptor::Output& output : node->get_outputs())
+            for (Output<Node> output : node->outputs())
             {
                 shared_ptr<descriptor::Tensor> tv = output.get_tensor_ptr();
                 temp << &m_buffer_indices[tv->get_name()];
@@ -1897,10 +1918,7 @@ void runtime::cpu::CPU_ExternalFunction::build(ngraph::pass::PassConfig& pass_co
                         }
                     });
 
-                if (m_release_function)
-                {
-                    release_function();
-                }
+                release_function();
             }
             // Execute the flow graph
             (static_cast<tbb::flow::continue_node<tbb::flow::continue_msg>*>(&(*(ctx->G->begin()))))
@@ -2018,15 +2036,12 @@ void runtime::cpu::CPU_ExternalFunction::build(ngraph::pass::PassConfig& pass_co
         {
             NGRAPH_CHECK(m_op_attrs.size() == profiler_count);
         }
-
     };
 
     m_is_built = true;
 
 #if defined(NGRAPH_TBB_ENABLE)
-    if (m_release_function && !m_use_tbb)
-#else
-    if (m_release_function)
+    if (!m_use_tbb)
 #endif
     {
         release_function();
@@ -2062,11 +2077,10 @@ shared_ptr<ngraph::runtime::cpu::CPU_CallFrame>
     runtime::cpu::CPU_ExternalFunction::make_call_frame(ngraph::pass::PassConfig& pass_config,
                                                         Allocator* allocator)
 {
-#if defined(NGRAPH_DEX_ONLY)
+#if !defined(CODEGEN_ENABLE)
     if (is_codegen(pass_config))
     {
-        NGRAPH_WARN << "CPU Backend: Requested unsupported compilation mode (CODEGEN). Falling "
-                       "back to DEX instead";
+        throw runtime_error("CPU Backend: Requested unsupported compilation mode (CODEGEN)");
     }
 #else
     // Override DEX if pass_config requests CODEGEN
@@ -2106,7 +2120,7 @@ const runtime::cpu::LayoutDescriptorPtrs&
 
 const vector<runtime::PerformanceCounter>& runtime::cpu::CPU_ExternalFunction::get_perf_counters()
 {
-#if !defined(NGRAPH_DEX_ONLY)
+#if defined(CODEGEN_ENABLE)
     // Codegen. Retrieve perf counters from compiled module
     if (m_execution_engine)
     {
@@ -2143,10 +2157,7 @@ const vector<runtime::PerformanceCounter>& runtime::cpu::CPU_ExternalFunction::g
                 }
             }
         }
-        if (m_release_function)
-        {
-            release_function();
-        }
+        release_function();
     }
 #endif
     return m_perf_counters;
@@ -2164,7 +2175,7 @@ void runtime::cpu::CPU_ExternalFunction::write_to_file(const std::string& code,
     out.close();
 }
 
-#if !defined(NGRAPH_DEX_ONLY)
+#if defined(CODEGEN_ENABLE)
 
 void runtime::cpu::CPU_ExternalFunction::emit_debug_function_entry(
     CodeWriter& writer,
@@ -2212,10 +2223,9 @@ string runtime::cpu::CPU_ExternalFunction::emit_op_as_function(const Node& node,
     vector<TensorWrapper> in;
     size_t arg_index = 0;
     set<string> arg_names;
-    for (const descriptor::Input& input : node.get_inputs())
+    for (Input<const Node> input : node.inputs())
     {
-        const descriptor::Output& output = input.get_output();
-        shared_ptr<descriptor::Tensor> tv = output.get_tensor_ptr();
+        shared_ptr<descriptor::Tensor> tv = input.get_tensor_ptr();
         TensorWrapper tvw{tv, "_arg" + to_string(arg_index)};
         if (arg_names.find(tvw.get_name()) == arg_names.end())
         {
@@ -2230,7 +2240,7 @@ string runtime::cpu::CPU_ExternalFunction::emit_op_as_function(const Node& node,
         in.push_back(tvw);
     }
     vector<TensorWrapper> out;
-    for (const descriptor::Output& output : node.get_outputs())
+    for (Output<const Node> output : node.outputs())
     {
         shared_ptr<descriptor::Tensor> tv = output.get_tensor_ptr();
         TensorWrapper tvw{tv, "_out" + to_string(arg_index)};

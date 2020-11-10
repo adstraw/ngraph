@@ -52,7 +52,7 @@ namespace ngraph
                 {
                     size_t size = args[0].get_element_type().size();
                     auto functor = [&, size, arg1_buffer_index, out_buffer_index](
-                        CPURuntimeContext* ctx, CPUExecutionContext* /* ectx */) {
+                                       CPURuntimeContext* ctx, CPUExecutionContext* /* ectx */) {
                         memcpy(ctx->buffer_data[out_buffer_index],
                                ctx->buffer_data[arg1_buffer_index],
                                size);
@@ -124,7 +124,10 @@ namespace ngraph
                 }
             }
 
-            void register_builders_update_slice_cpp() { REGISTER_OP_BUILDER(UpdateSlice); }
+            void register_builders_update_slice_cpp()
+            {
+                REGISTER_OP_BUILDER(ngraph::op::UpdateSlice);
+            }
         }
     }
 }

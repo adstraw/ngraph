@@ -24,8 +24,7 @@
 
 namespace ngraph
 {
-    [[noreturn]] void numpy_transpose_error(const AxisVector& order, const Shape& in_shape)
-    {
+    [[noreturn]] void numpy_transpose_error(const AxisVector& order, const Shape& in_shape) {
         std::ostringstream os;
         os << "The axes order ";
         os << "[ " << ngraph::join(order) << " ]";
@@ -74,9 +73,8 @@ namespace ngraph
                 out_shape.push_back(in_shape[order[i]]);
 
             // do the reshaping with the order
-            return std::make_shared<ngraph::op::Reshape>(value, order, out_shape)
+            return std::make_shared<ngraph::op::v0::Reshape>(value, order, out_shape)
                 ->add_provenance_group_members_above({value});
         }
-
-    } // namespace builder
-} // namespace ngraph
+    }
+}

@@ -52,7 +52,7 @@ void op::util::ArithmeticReductionKeepDims::validate_and_infer_types()
         {
             AxisSet reduction_axes;
             auto reduction_axes_val =
-                as_type<op::Constant>(input_value(1).get_node())->cast_vector<int64_t>();
+                as_type<op::v0::Constant>(input_value(1).get_node())->cast_vector<int64_t>();
             for (auto axis : reduction_axes_val)
             {
                 try
@@ -96,4 +96,24 @@ void op::util::ArithmeticReductionKeepDims::validate_and_infer_types()
     {
         ArithmeticReduction::validate_and_infer_types();
     }
+}
+
+Shape op::util::ArithmeticReductionKeepDims::compute_output_shape(
+    const Shape& input_shape, const AxisSet& reduction_axes) const
+{
+    Shape output_shape;
+    size_t index = 0;
+    for (auto dim : input_shape)
+    {
+        if (reduction_axes.find(index) == reduction_axes.end())
+        {
+            output_shape.push_back(dim);
+        }
+        else if (m_keep_dims)
+        {
+            output_shape.push_back(1);
+        }
+        index++;
+    }
+    return output_shape;
 }

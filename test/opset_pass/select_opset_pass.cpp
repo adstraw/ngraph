@@ -2,9 +2,9 @@
 #include "gtest/gtest.h"
 
 #include "ngraph/ngraph.hpp"
+#include "ngraph/pass/convert_opset_0_to_1.hpp"
+#include "ngraph/pass/convert_opset_1_to_0.hpp"
 #include "ngraph/pass/manager.hpp"
-#include "ngraph/pass/opset0_downgrade.hpp"
-#include "ngraph/pass/opset1_upgrade.hpp"
 #include "util/test_control.hpp"
 #include "util/type_prop.hpp"
 
@@ -13,16 +13,16 @@ using namespace ngraph;
 
 TEST(opset_transform, opset0_select_downgrade_pass)
 {
-    auto cond = make_shared<op::Parameter>(element::boolean, Shape{2});
-    auto ptrue = make_shared<op::Parameter>(element::f32, Shape{4, 2});
-    auto pfalse = make_shared<op::Parameter>(element::f32, Shape{4, 2});
+    auto cond = make_shared<op::v0::Parameter>(element::boolean, Shape{2});
+    auto ptrue = make_shared<op::v0::Parameter>(element::f32, Shape{4, 2});
+    auto pfalse = make_shared<op::v0::Parameter>(element::f32, Shape{4, 2});
 
     auto v1_node = make_shared<op::v1::Select>(cond, ptrue, pfalse);
-    auto result = make_shared<op::Result>(v1_node);
+    auto result = make_shared<op::v0::Result>(v1_node);
     auto f = make_shared<Function>(ResultVector{result}, ParameterVector{cond, ptrue, pfalse});
 
     ngraph::pass::Manager pass_manager;
-    pass_manager.register_pass<pass::Opset0Downgrade>();
+    pass_manager.register_pass<pass::ConvertOpset1To0>();
     pass_manager.run_passes(f);
 
     auto v0_result = f->get_results().at(0);
@@ -36,16 +36,16 @@ TEST(opset_transform, opset0_select_downgrade_pass)
 
 TEST(opset_transform, opset1_select_upgrade_pass)
 {
-    auto cond = make_shared<op::Parameter>(element::boolean, Shape{4, 2});
-    auto ptrue = make_shared<op::Parameter>(element::f32, Shape{4, 2});
-    auto pfalse = make_shared<op::Parameter>(element::f32, Shape{4, 2});
+    auto cond = make_shared<op::v0::Parameter>(element::boolean, Shape{4, 2});
+    auto ptrue = make_shared<op::v0::Parameter>(element::f32, Shape{4, 2});
+    auto pfalse = make_shared<op::v0::Parameter>(element::f32, Shape{4, 2});
 
     auto v0_node = make_shared<op::v0::Select>(cond, ptrue, pfalse);
-    auto result = make_shared<op::Result>(v0_node);
+    auto result = make_shared<op::v0::Result>(v0_node);
     auto f = make_shared<Function>(ResultVector{result}, ParameterVector{cond, ptrue, pfalse});
 
     ngraph::pass::Manager pass_manager;
-    pass_manager.register_pass<pass::Opset1Upgrade>();
+    pass_manager.register_pass<pass::ConvertOpset0To1>();
     pass_manager.run_passes(f);
 
     auto v1_result = f->get_results().at(0);

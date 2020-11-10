@@ -76,6 +76,7 @@ namespace ngraph
                 int get_sampling_ratio() const { return m_sampling_ratio; }
                 float get_spatial_scale() const { return m_spatial_scale; }
                 PoolingMode get_mode() const { return m_mode; }
+
             private:
                 PoolingMode mode_from_string(const std::string& mode) const;
 
@@ -87,7 +88,6 @@ namespace ngraph
                 PoolingMode m_mode;
             };
         }
-        using v3::ROIAlign;
     }
 
     std::ostream& operator<<(std::ostream& s, const op::v3::ROIAlign::PoolingMode& mode);

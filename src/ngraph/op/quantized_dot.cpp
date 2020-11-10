@@ -23,21 +23,21 @@
 using namespace std;
 using namespace ngraph;
 
-constexpr NodeTypeInfo op::QuantizedDot::type_info;
+constexpr NodeTypeInfo op::v0::QuantizedDot::type_info;
 
-op::QuantizedDot::QuantizedDot(const Output<Node>& input0,
-                               const Output<Node>& input1,
-                               size_t reduction_axes_count,
-                               const Output<Node>& input0_scale,
-                               const Output<Node>& input0_zero_point,
-                               const Output<Node>& input1_scale,
-                               const Output<Node>& input1_zero_point,
-                               const Output<Node>& output_scale,
-                               const Output<Node>& output_zero_point,
-                               const element::Type& output_type,
-                               const AxisSet& input0_axes,
-                               const AxisSet& input1_axes,
-                               const AxisSet& output_axes)
+op::v0::QuantizedDot::QuantizedDot(const Output<Node>& input0,
+                                   const Output<Node>& input1,
+                                   size_t reduction_axes_count,
+                                   const Output<Node>& input0_scale,
+                                   const Output<Node>& input0_zero_point,
+                                   const Output<Node>& input1_scale,
+                                   const Output<Node>& input1_zero_point,
+                                   const Output<Node>& output_scale,
+                                   const Output<Node>& output_zero_point,
+                                   const element::Type& output_type,
+                                   const AxisSet& input0_axes,
+                                   const AxisSet& input1_axes,
+                                   const AxisSet& output_axes)
     : Op({input0,
           input1,
           input0_scale,
@@ -55,7 +55,7 @@ op::QuantizedDot::QuantizedDot(const Output<Node>& input0,
     constructor_validate_and_infer_types();
 }
 
-void op::QuantizedDot::validate_and_infer_types()
+void op::v0::QuantizedDot::validate_and_infer_types()
 {
     enum
     {
@@ -200,26 +200,26 @@ void op::QuantizedDot::validate_and_infer_types()
     set_output_type(0, m_output_type, result_shape);
 }
 
-shared_ptr<Node> op::QuantizedDot::clone_with_new_inputs(const OutputVector& new_args) const
+shared_ptr<Node> op::v0::QuantizedDot::clone_with_new_inputs(const OutputVector& new_args) const
 {
     check_new_args_count(this, new_args);
-    return shared_ptr<Node>(new QuantizedDot(new_args.at(0),
-                                             new_args.at(1),
-                                             m_reduction_axes_count,
-                                             new_args.at(2),
-                                             new_args.at(3),
-                                             new_args.at(4),
-                                             new_args.at(5),
-                                             new_args.at(6),
-                                             new_args.at(7),
-                                             m_output_type,
-                                             m_input0_axes,
-                                             m_input1_axes,
-                                             m_output_axes));
+    return make_shared<QuantizedDot>(new_args.at(0),
+                                     new_args.at(1),
+                                     m_reduction_axes_count,
+                                     new_args.at(2),
+                                     new_args.at(3),
+                                     new_args.at(4),
+                                     new_args.at(5),
+                                     new_args.at(6),
+                                     new_args.at(7),
+                                     m_output_type,
+                                     m_input0_axes,
+                                     m_input1_axes,
+                                     m_output_axes);
 }
 
-void op::QuantizedDot::generate_adjoints(autodiff::Adjoints& /* adjoints */,
-                                         const OutputVector& /* deltas */)
+void op::v0::QuantizedDot::generate_adjoints(autodiff::Adjoints& /* adjoints */,
+                                             const OutputVector& /* deltas */)
 {
     throw ngraph_error("Forward-propagation-only operation");
 }

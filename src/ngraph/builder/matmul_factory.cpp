@@ -53,7 +53,7 @@ static Output<Node> get_sub_matrix(const Output<Node>& node, size_t idx)
     lower_bounds.at(0) = idx;
     upper_bounds.at(0) = idx + 1;
 
-    auto sub_matrix = Output<Node>{make_shared<op::Slice>(node, lower_bounds, upper_bounds)};
+    auto sub_matrix = Output<Node>{make_shared<op::v0::Slice>(node, lower_bounds, upper_bounds)};
     // Remove first single entry dim.
     return builder::squeeze(sub_matrix);
 }
@@ -68,7 +68,7 @@ Output<Node> builder::MatmulFactory::get_right()
     return m_inputs.at(1);
 }
 
-NodeVector builder::MatmulFactory::make_matmul_op()
+OutputVector builder::MatmulFactory::make_matmul_op()
 {
     auto left = get_left();
     auto right = get_right();
@@ -119,7 +119,7 @@ NodeVector builder::MatmulFactory::make_matmul_op()
     {
         groups = right.get_shape().at(0);
     }
-    NodeVector small_dots(groups);
+    OutputVector small_dots(groups);
 
     for (size_t g = 0; g < groups; ++g)
     {
@@ -133,7 +133,7 @@ NodeVector builder::MatmulFactory::make_matmul_op()
     }
 
     // Concatenate sub_dots on groups axis.
-    auto result = make_shared<op::Concat>(small_dots, 0);
+    auto result = make_shared<op::v0::Concat>(small_dots, 0);
 
     if (left_shape.size() <= 3 && right_shape.size() <= 3)
     {
@@ -142,18 +142,18 @@ NodeVector builder::MatmulFactory::make_matmul_op()
     // Expand result _stack of matrices_ axes to get expected result shape.
     else
     {
-        const Shape& shape{result->get_shape()};
+        const Shape& shape{result->get_output_shape(0)};
         Shape result_shape(next(begin(shape)), end(shape));
         result_shape.insert(
             begin(result_shape), begin(left_shape), next(begin(left_shape), left_shape.size() - 2));
-        return {make_shared<op::Reshape>(result, get_default_order(shape.size()), result_shape)
+        return {make_shared<op::v0::Reshape>(result, get_default_order(shape.size()), result_shape)
                     ->add_provenance_group_members_above(m_inputs)};
     }
 }
 
 Output<Node> builder::MatmulFactory::make_dot(const Output<Node>& left, const Output<Node>& right)
 {
-    return make_shared<op::Dot>(left, right);
+    return make_shared<op::v0::Dot>(left, right);
 }
 
 Output<Node> builder::QLinearMatmulFactory::get_right()
@@ -177,19 +177,19 @@ Output<Node> builder::QLinearMatmulFactory::make_dot(const Output<Node>& left,
         output_type = ngraph::element::u8;
     }
 
-    return std::make_shared<ngraph::op::QuantizedDot>(left,
-                                                      right,
-                                                      1,
-                                                      m_inputs.at(1),
-                                                      m_inputs.at(2),
-                                                      m_inputs.at(4),
-                                                      m_inputs.at(5),
-                                                      m_inputs.at(6),
-                                                      m_inputs.at(7),
-                                                      output_type,
-                                                      ngraph::AxisSet{},
-                                                      ngraph::AxisSet{},
-                                                      ngraph::AxisSet{});
+    return std::make_shared<ngraph::op::v0::QuantizedDot>(left,
+                                                          right,
+                                                          1,
+                                                          m_inputs.at(1),
+                                                          m_inputs.at(2),
+                                                          m_inputs.at(4),
+                                                          m_inputs.at(5),
+                                                          m_inputs.at(6),
+                                                          m_inputs.at(7),
+                                                          output_type,
+                                                          ngraph::AxisSet{},
+                                                          ngraph::AxisSet{},
+                                                          ngraph::AxisSet{});
 }
 
 Output<Node> builder::MatmulIntegerFactory::make_dot(const Output<Node>& left,
@@ -202,7 +202,28 @@ Output<Node> builder::MatmulIntegerFactory::make_dot(const Output<Node>& left,
     auto right_zero_point = ngraph::builder::make_constant(right.get_element_type(), Shape{}, 0);
     if (num_inputs == 2)
     {
-        return std::make_shared<ngraph::op::QuantizedDot>(left,
+        return std::make_shared<ngraph::op::v0::QuantizedDot>(left,
+                                                              right,
+                                                              1,
+                                                              scale_one,
+                                                              left_zero_point,
+                                                              scale_one,
+                                                              right_zero_point,
+                                                              scale_one,
+                                                              output_zero_point,
+                                                              ngraph::element::i32,
+                                                              ngraph::AxisSet{},
+                                                              ngraph::AxisSet{},
+                                                              ngraph::AxisSet{});
+    }
+
+    left_zero_point = m_inputs.at(2).get_node_shared_ptr();
+    if (num_inputs == 4)
+    {
+        right_zero_point = m_inputs.at(3).get_node_shared_ptr();
+    }
+
+    return std::make_shared<ngraph::op::v0::QuantizedDot>(left,
                                                           right,
                                                           1,
                                                           scale_one,
@@ -215,25 +236,4 @@ Output<Node> builder::MatmulIntegerFactory::make_dot(const Output<Node>& left,
                                                           ngraph::AxisSet{},
                                                           ngraph::AxisSet{},
                                                           ngraph::AxisSet{});
-    }
-
-    left_zero_point = m_inputs.at(2).get_node_shared_ptr();
-    if (num_inputs == 4)
-    {
-        right_zero_point = m_inputs.at(3).get_node_shared_ptr();
-    }
-
-    return std::make_shared<ngraph::op::QuantizedDot>(left,
-                                                      right,
-                                                      1,
-                                                      scale_one,
-                                                      left_zero_point,
-                                                      scale_one,
-                                                      right_zero_point,
-                                                      scale_one,
-                                                      output_zero_point,
-                                                      ngraph::element::i32,
-                                                      ngraph::AxisSet{},
-                                                      ngraph::AxisSet{},
-                                                      ngraph::AxisSet{});
 }

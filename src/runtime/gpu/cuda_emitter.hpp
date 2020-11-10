@@ -45,9 +45,9 @@ namespace ngraph
                 friend class GPUPrimitiveEmitter;
 
             public:
-                size_t build_primitive(const op::Convolution* node);
-                size_t build_primitive(const op::MaxPool* node);
-                size_t build_primitive(const op::ReplaceSlice* node, bool in_place_op);
+                size_t build_primitive(const op::v0::Convolution* node);
+                size_t build_primitive(const op::v0::MaxPool* node);
+                size_t build_primitive(const op::v0::ReplaceSlice* node, bool in_place_op);
 
             public:
                 size_t build_memset(const std::string& dtype, uint32_t tensor_size);
@@ -136,22 +136,23 @@ namespace ngraph
                                         with_init_value);
                 }
 
-                template <typename ELEMENTWISE_OP_TYPE, typename REDUCE_OP_TYPE = ngraph::op::Nop>
-                size_t build_elementwise_collective(const std::vector<std::string>& dtypes,
-                                                    NVShape tensor_shape,
-                                                    const std::set<size_t>& reduced_tensors = {},
-                                                    const std::set<size_t>& axes = {},
-                                                    bool save_elementwise = false)
-                {
-                    return build_fused_ew_to_collective(dtypes,
-                                                        tensor_shape,
-                                                        reduced_tensors,
-                                                        axes,
-                                                        CudaOpMap<ELEMENTWISE_OP_TYPE>::op,
-                                                        CudaOpMap<ELEMENTWISE_OP_TYPE>::math_kernel,
-                                                        CudaOpMap<REDUCE_OP_TYPE>::atomic,
-                                                        save_elementwise);
-                }
+                // template <typename ELEMENTWISE_OP_TYPE, typename REDUCE_OP_TYPE =
+                // ngraph::op::v0::Nop>
+                // size_t build_elementwise_collective(const std::vector<std::string>& dtypes,
+                //                                     NVShape tensor_shape,
+                //                                     const std::set<size_t>& reduced_tensors = {},
+                //                                     const std::set<size_t>& axes = {},
+                //                                     bool save_elementwise = false)
+                // {
+                //     return build_fused_ew_to_collective(dtypes,
+                //                                         tensor_shape,
+                //                                         reduced_tensors,
+                //                                         axes,
+                //                                         CudaOpMap<ELEMENTWISE_OP_TYPE>::op,
+                //                                         CudaOpMap<ELEMENTWISE_OP_TYPE>::math_kernel,
+                //                                         CudaOpMap<REDUCE_OP_TYPE>::atomic,
+                //                                         save_elementwise);
+                // }
 
                 size_t build_broadcast(const std::array<std::string, 2>& dtypes,
                                        NVShape result_shape,

@@ -36,12 +36,6 @@
 #include "ngraph/serializer.hpp"
 #include "ngraph/type/element_type_traits.hpp"
 
-#ifdef NGRAPH_MLIR_ENABLE
-#define MLIR_DISABLE_TEST(name) DISABLED_##name
-#else
-#define MLIR_DISABLE_TEST(name) name
-#endif
-
 namespace ngraph
 {
     class Node;
@@ -70,24 +64,12 @@ namespace ngraph
         {
             return std::make_shared<TestOpMultiOut>(new_args.at(0), new_args.at(1));
         }
-        bool evaluate(const HostTensorVector& outputs, const HostTensorVector& inputs) override;
+        bool evaluate(const HostTensorVector& outputs,
+                      const HostTensorVector& inputs) const override;
     };
 }
 
-class DisableRemoveGOE
-{
-public:
-    DisableRemoveGOE()
-        : m_saved_remove_goe(ngraph::get_remove_goe())
-    {
-        ngraph::set_remove_goe(false);
-    }
-    ~DisableRemoveGOE() { ngraph::set_remove_goe(m_saved_remove_goe); }
-private:
-    bool m_saved_remove_goe;
-};
-
-bool validate_list(const std::vector<std::shared_ptr<ngraph::Node>>& nodes);
+bool validate_list(const ngraph::NodeVector& nodes);
 std::shared_ptr<ngraph::Function> make_test_graph();
 #ifndef NGRAPH_JSON_DISABLE
 std::shared_ptr<ngraph::Function> make_function_from_file(const std::string& file_name);
@@ -223,7 +205,7 @@ std::vector<std::shared_ptr<ngraph::runtime::Tensor>>
     for (size_t i = 0; i < t1args.size(); i++)
     {
         auto t = backend->create_tensor(parms.at(total_arg_count)->get_element_type(),
-                                        parms.at(total_arg_count)->get_shape());
+                                        parms.at(total_arg_count)->get_output_shape(0));
         auto x = t1args.at(i);
         copy_data(t, x);
         arg_tensors.at(total_arg_count) = t;
@@ -233,7 +215,7 @@ std::vector<std::shared_ptr<ngraph::runtime::Tensor>>
     for (size_t i = 0; i < t2args.size(); i++)
     {
         auto t = backend->create_tensor(parms.at(total_arg_count)->get_element_type(),
-                                        parms.at(total_arg_count)->get_shape());
+                                        parms.at(total_arg_count)->get_output_shape(0));
         copy_data(t, t2args.at(i));
         arg_tensors.at(total_arg_count) = t;
         total_arg_count++;
@@ -244,8 +226,8 @@ std::vector<std::shared_ptr<ngraph::runtime::Tensor>>
 
     for (size_t i = 0; i < results.size(); i++)
     {
-        result_tensors.at(i) =
-            backend->create_tensor(results.at(i)->get_element_type(), results.at(i)->get_shape());
+        result_tensors.at(i) = backend->create_tensor(results.at(i)->get_output_element_type(0),
+                                                      results.at(i)->get_output_shape(0));
     }
 
     auto handle = backend->compile(function);

@@ -28,7 +28,7 @@ namespace ngraph
         namespace cpu
         {
             template <>
-            void Builder::BUILDER_DECL(ngraph::op::Convert)
+            void Builder::BUILDER_DECL(ngraph::op::v0::Convert)
             {
                 (void)node;
                 auto& functors = external_function->get_functors();
@@ -117,7 +117,7 @@ namespace ngraph
                 }
 
                 auto functor = [&, kernel, element_count, arg_buffer_index, out_buffer_index](
-                    CPURuntimeContext* ctx, CPUExecutionContext* ectx) {
+                                   CPURuntimeContext* ctx, CPUExecutionContext* ectx) {
                     if (ctx->buffer_data[arg_buffer_index] != ctx->buffer_data[out_buffer_index])
                     {
                         kernel(ctx->buffer_data[arg_buffer_index],
@@ -129,7 +129,7 @@ namespace ngraph
                 functors.emplace_back(functor);
             }
 
-            void register_builders_convert_cpp() { REGISTER_OP_BUILDER(Convert); }
+            void register_builders_convert_cpp() { REGISTER_OP_BUILDER(ngraph::op::v0::Convert); }
         }
     }
 }

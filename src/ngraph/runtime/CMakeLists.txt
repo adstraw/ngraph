@@ -15,6 +15,7 @@
 # ******************************************************************************
 
 add_subdirectory(interpreter)
+add_subdirectory(eval)
 
 # With CMAKE_WINDOWS_EXPORT_ALL_SYMBOLS, when creating cpu_backend.dll, link reports error: library limit of 65535 objects exceeded
 if (NGRAPH_CPU_ENABLE)
@@ -25,6 +26,6 @@ if (NGRAPH_GENERIC_CPU_ENABLE)
     add_subdirectory(gcpu)
 endif()
 
-if (NGRAPH_IE_ENABLE)
-    add_subdirectory(ie)
+if (NGRAPH_MLIR_ENABLE OR NGRAPH_CPU_MLIR_ENABLE)
+    add_subdirectory(mlir)
 endif()

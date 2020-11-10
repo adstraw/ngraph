@@ -41,7 +41,6 @@
 #include "ngraph/op/acos.hpp"
 #include "ngraph/op/add.hpp"
 #include "ngraph/op/allreduce.hpp"
-#include "ngraph/op/and.hpp"
 #include "ngraph/op/argmax.hpp"
 #include "ngraph/op/argmin.hpp"
 #include "ngraph/op/asin.hpp"
@@ -61,12 +60,14 @@
 #include "ngraph/op/equal.hpp"
 #include "ngraph/op/exp.hpp"
 #include "ngraph/op/floor.hpp"
-#include "ngraph/op/get_output_element.hpp"
 #include "ngraph/op/greater.hpp"
-#include "ngraph/op/greater_eq.hpp"
+#include "ngraph/op/greater_equal.hpp"
 #include "ngraph/op/less.hpp"
-#include "ngraph/op/less_eq.hpp"
+#include "ngraph/op/less_equal.hpp"
 #include "ngraph/op/log.hpp"
+#include "ngraph/op/logical_and.hpp"
+#include "ngraph/op/logical_not.hpp"
+#include "ngraph/op/logical_or.hpp"
 #include "ngraph/op/lrn.hpp"
 #include "ngraph/op/max.hpp"
 #include "ngraph/op/max_pool.hpp"
@@ -75,11 +76,9 @@
 #include "ngraph/op/minimum.hpp"
 #include "ngraph/op/multiply.hpp"
 #include "ngraph/op/negative.hpp"
-#include "ngraph/op/not.hpp"
 #include "ngraph/op/not_equal.hpp"
 #include "ngraph/op/one_hot.hpp"
 #include "ngraph/op/op.hpp"
-#include "ngraph/op/or.hpp"
 #include "ngraph/op/pad.hpp"
 #include "ngraph/op/parameter.hpp"
 #include "ngraph/op/power.hpp"
@@ -158,9 +157,7 @@ runtime::gpu::GPUExternalFunction::GPUExternalFunction(
 {
 }
 
-runtime::gpu::GPUExternalFunction::~GPUExternalFunction()
-{
-}
+runtime::gpu::GPUExternalFunction::~GPUExternalFunction() {}
 
 std::string runtime::gpu::GPUExternalFunction::add_to_runtime(
     size_t primitive_index,
@@ -222,7 +219,8 @@ const string& runtime::gpu::GPUExternalFunction::get_pch_header_source()
 const string& runtime::gpu::GPUExternalFunction::get_header_source()
 {
     static string s_header_source =
-        get_pch_header_source() + R"(
+        get_pch_header_source() +
+        R"(
 using namespace ngraph;
 using namespace ngraph::runtime;
 using namespace std;
@@ -308,7 +306,7 @@ void runtime::gpu::GPUExternalFunction::emit_constant_declarations()
     {
         for (shared_ptr<Node> node : p.second)
         {
-            const op::Constant* c = dynamic_cast<ngraph::op::Constant*>(node.get());
+            const op::v0::Constant* c = dynamic_cast<ngraph::op::v0::Constant*>(node.get());
             if (c)
             {
                 shared_ptr<descriptor::Tensor> tv = node->get_outputs()[0].get_tensor_ptr();
@@ -335,7 +333,7 @@ void runtime::gpu::GPUExternalFunction::emit_constant_declarations()
             {
                 for (shared_ptr<Node> node : p.second)
                 {
-                    const op::Constant* c = dynamic_cast<ngraph::op::Constant*>(node.get());
+                    const op::v0::Constant* c = dynamic_cast<ngraph::op::v0::Constant*>(node.get());
                     if (c)
                     {
                         shared_ptr<descriptor::Tensor> tv = node->get_outputs()[0].get_tensor_ptr();
@@ -410,13 +408,13 @@ void runtime::gpu::GPUExternalFunction::emit_functions()
         set<string> output_names;
         for (shared_ptr<Node> op : current_function->get_results())
         {
-            shared_ptr<descriptor::Tensor> tv = op->get_output_tensor_ptr();
+            shared_ptr<descriptor::Tensor> tv = op->get_output_tensor_ptr(0);
             output_names.insert(tv->get_name());
         }
         set<descriptor::Tensor*> constants;
         for (shared_ptr<Node> node : m_function_ordered_ops.at(current_function))
         {
-            if (dynamic_cast<ngraph::op::Constant*>(node.get()))
+            if (dynamic_cast<ngraph::op::v0::Constant*>(node.get()))
             {
                 shared_ptr<descriptor::Tensor> tv = node->get_outputs()[0].get_tensor_ptr();
                 constants.insert(tv.get());
@@ -437,7 +435,7 @@ void runtime::gpu::GPUExternalFunction::emit_functions()
 
             // Add inputs to the variable name map
             size_t arg_index = 0;
-            for (shared_ptr<ngraph::op::Parameter> param : current_function->get_parameters())
+            for (shared_ptr<ngraph::op::v0::Parameter> param : current_function->get_parameters())
             {
                 for (size_t i = 0; i < param->get_output_size(); ++i)
                 {
@@ -456,15 +454,15 @@ void runtime::gpu::GPUExternalFunction::emit_functions()
             for (size_t i = 0; i < current_function->get_output_size(); ++i)
             {
                 shared_ptr<Node> op = current_function->get_output_op(i);
-                shared_ptr<descriptor::Tensor> tv = op->get_output_tensor_ptr();
+                shared_ptr<descriptor::Tensor> tv = op->get_output_tensor_ptr(0);
                 string type = tv->get_element_type().c_type_string();
                 stringstream ss;
                 ss << "((" << type << "*)(outputs[" << i << "]))";
                 m_variable_name_map[tv->get_name()] = ss.str();
 
-                auto res = dynamic_pointer_cast<ngraph::op::Result>(op);
+                auto res = dynamic_pointer_cast<ngraph::op::v0::Result>(op);
                 // keep assigning different outputs to a result descriptor
-                // op::Result emitter will check if in and out descriptors are the same
+                // op::v0::Result emitter will check if in and out descriptors are the same
                 // and skip a copy
                 auto input_node = res->get_inputs().at(0).get_output().get_node();
                 if (!input_node->is_constant() && !input_node->is_parameter())
@@ -722,7 +720,7 @@ void runtime::gpu::GPUExternalFunction::propagate_in_place_output(
     ngraph::descriptor::Output* res_src_output, const std::string& output_name)
 {
     // we start with a particular output
-    // which is an argument to a given op::Result
+    // which is an argument to a given op::v0::Result
     size_t offset = res_src_output->get_tensor().get_pool_offset();
     auto it = res_src_output;
 

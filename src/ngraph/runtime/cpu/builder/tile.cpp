@@ -28,7 +28,7 @@ namespace ngraph
         namespace cpu
         {
             template <>
-            void Builder::BUILDER_DECL(ngraph::op::Tile)
+            void Builder::BUILDER_DECL(ngraph::op::v0::Tile)
             {
                 (void)node;
                 auto arg_shape = args[0].get_shape();
@@ -49,7 +49,7 @@ namespace ngraph
                     SELECT_KERNEL(
                         kernel, out[0].get_element_type(), runtime::cpu::kernel::tile_rank_0)
                     auto functor = [&, kernel, repeats, arg_buffer_index, out_buffer_index](
-                        CPURuntimeContext* ctx, CPUExecutionContext* /* ectx */) {
+                                       CPURuntimeContext* ctx, CPUExecutionContext* /* ectx */) {
                         kernel(ctx->buffer_data[arg_buffer_index],
                                ctx->buffer_data[out_buffer_index],
                                repeats);
@@ -78,7 +78,7 @@ namespace ngraph
                 }
             }
 
-            void register_builders_tile_cpp() { REGISTER_OP_BUILDER(Tile); }
+            void register_builders_tile_cpp() { REGISTER_OP_BUILDER(ngraph::op::v0::Tile); }
         }
     }
 }

@@ -18,7 +18,6 @@
 #include <sstream>
 
 #include "ngraph/log.hpp"
-#include "ngraph/log.hpp"
 #include "ngraph/op/concat.hpp"
 #include "ngraph/op/constant.hpp"
 #include "ngraph/op/slice.hpp"
@@ -55,12 +54,11 @@ size_t runtime::cpu::pass::CPUMemoryAssignment::get_bufferID(descriptor::Tensor*
     return tensor_it->second;
 }
 
-void runtime::cpu::pass::CPUMemoryAssignment::process_in_place_concat(
-    std::vector<std::shared_ptr<Node>> nodes)
+void runtime::cpu::pass::CPUMemoryAssignment::process_in_place_concat(NodeVector nodes)
 {
     for (shared_ptr<Node> node : nodes)
     {
-        if (auto concat = as_type_ptr<op::Concat>(node))
+        if (auto concat = as_type_ptr<op::v0::Concat>(node))
         {
             if (auto op_annotations = concat->get_op_annotations())
             {
@@ -71,7 +69,7 @@ void runtime::cpu::pass::CPUMemoryAssignment::process_in_place_concat(
                     bool found_last_concat = true;
                     for (auto user : concat->get_users())
                     {
-                        if (auto user_concat = as_type_ptr<op::Concat>(user))
+                        if (auto user_concat = as_type_ptr<op::v0::Concat>(user))
                         {
                             if (auto user_op_annotations = user_concat->get_op_annotations())
                             {
@@ -134,7 +132,7 @@ void runtime::cpu::pass::CPUMemoryAssignment::process_in_place_concat(
 void runtime::cpu::pass::CPUMemoryAssignment::propagate_in_place_concat(const Output<Node>& output)
 {
     auto op = output.get_node_shared_ptr();
-    if (is_type<op::Concat>(op))
+    if (is_type<op::v0::Concat>(op))
     {
         auto output_tensor = &op->get_output_tensor(0);
         auto output_bufferID = get_bufferID(output_tensor);
@@ -214,12 +212,11 @@ void runtime::cpu::pass::CPUMemoryAssignment::propagate_in_place_concat(const Ou
 }
 
 // slice
-void runtime::cpu::pass::CPUMemoryAssignment::process_in_place_slice(
-    std::vector<std::shared_ptr<Node>> nodes)
+void runtime::cpu::pass::CPUMemoryAssignment::process_in_place_slice(NodeVector nodes)
 {
     for (shared_ptr<Node>& node : nodes)
     {
-        if (auto slice = as_type_ptr<op::Slice>(node))
+        if (auto slice = as_type_ptr<op::v0::Slice>(node))
         {
             if (auto op_annotations = slice->get_op_annotations())
             {
@@ -249,7 +246,7 @@ void runtime::cpu::pass::CPUMemoryAssignment::process_in_place_slice(
                         }
 
                         auto old_offset = output_tensor->get_pool_offset();
-                        offset += slice->get_element_type().size() * start;
+                        offset += slice->get_output_element_type(0).size() * start;
                         output_tensor->set_pool_offset(offset);
                         NGRAPH_DEBUG
                             << "cpu_memory_assignment: slice, change offset, old offset is "
@@ -286,7 +283,7 @@ void runtime::cpu::pass::CPUMemoryAssignment::propagate_in_place_slice(const Inp
 
         auto node = in.get_node();
         // let process_in_place_slice handle slice.
-        if (is_type<op::Slice>(node))
+        if (is_type<op::v0::Slice>(node))
         {
             continue;
         }
@@ -328,7 +325,7 @@ void runtime::cpu::pass::CPUMemoryAssignment::propagate_in_place_slice(const Inp
 // new set is created. bufferID_to_tensorSets maps bufferID to the pair of TensorRole and buffer
 // set. TensorRole is INPUT, CONSTANT, OUTPUT, or INTERMEDIATE, which tells from where the memory
 // buffer comes. tensor_to_bufferID maps tensor to the ID of the buffer set it belongs to.
-void runtime::cpu::pass::CPUMemoryAssignment::build_buffer_sets_maps(vector<shared_ptr<Node>>& ops)
+void runtime::cpu::pass::CPUMemoryAssignment::build_buffer_sets_maps(NodeVector& ops)
 {
     unordered_set<descriptor::Tensor*> in_place_slice_chain;
     size_t count = 0;
@@ -344,7 +341,7 @@ void runtime::cpu::pass::CPUMemoryAssignment::build_buffer_sets_maps(vector<shar
             m_tensor_to_bufferID[output_tensor] = count;
             count++;
         }
-        else if (is_type<op::Constant>(node))
+        else if (is_type<op::v0::Constant>(node))
         {
             auto output_tensor = &node->get_output_tensor(0);
             auto ele = std::pair<TensorRole, unordered_set<descriptor::Tensor*>>(
@@ -395,7 +392,7 @@ void runtime::cpu::pass::CPUMemoryAssignment::build_buffer_sets_maps(vector<shar
                     auto cacheable = op_annotations->is_cacheable();
 
                     // in place concat
-                    if (is_type<op::Concat>(node))
+                    if (is_type<op::v0::Concat>(node))
                     {
                         auto output_tensor = &node->get_output_tensor(0);
                         auto ele = std::pair<TensorRole, unordered_set<descriptor::Tensor*>>(
@@ -497,7 +494,7 @@ void runtime::cpu::pass::CPUMemoryAssignment::build_buffer_sets_maps(vector<shar
                                     auto input_buffer_it = m_bufferID_to_tensorSets.find(bufferID);
                                     NGRAPH_CHECK(input_buffer_it != m_bufferID_to_tensorSets.end());
 
-                                    if (is_type<op::Slice>(node))
+                                    if (is_type<op::v0::Slice>(node))
                                     {
                                         if (input_buffer_it->second.first != TensorRole::CONSTANT)
                                         {
@@ -544,8 +541,7 @@ void runtime::cpu::pass::CPUMemoryAssignment::build_buffer_sets_maps(vector<shar
     }
 }
 
-void runtime::cpu::pass::CPUMemoryAssignment::liveness_analysis(
-    std::vector<std::shared_ptr<Node>>& ops)
+void runtime::cpu::pass::CPUMemoryAssignment::liveness_analysis(NodeVector& ops)
 {
     auto find_role = [](TensorRole tensor_role) -> string {
         switch (tensor_role)

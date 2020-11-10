@@ -22,38 +22,40 @@ using namespace std;
 using namespace ngraph;
 
 template <typename T>
-static shared_ptr<op::Constant> fold_constant_tile(const shared_ptr<op::Constant>& data,
-                                                   const shared_ptr<Node>& tile)
+static shared_ptr<op::v0::Constant> fold_constant_tile(const shared_ptr<op::v0::Constant>& data,
+                                                       const shared_ptr<Node>& tile)
 {
-    runtime::AlignedBuffer buffer(shape_size(tile->get_shape()) * sizeof(T));
+    runtime::AlignedBuffer buffer(shape_size(tile->get_output_shape(0)) * sizeof(T));
     T* data_ptr = buffer.get_ptr<T>();
     // No need to call the reference kernel.
-    if (shape_size(tile->get_shape()) == 0)
+    if (shape_size(tile->get_output_shape(0)) == 0)
     {
-        return make_shared<op::Constant>(
+        return make_shared<op::v0::Constant>(
             tile->get_output_element_type(0), tile->get_output_shape(0), data_ptr);
     }
 
     if (auto tile_v0 = as_type_ptr<op::v0::Tile>(tile))
     {
-        runtime::reference::tile<T>(
-            data->get_data_ptr<T>(), data_ptr, data->get_shape(), tile_v0->get_shape());
+        runtime::reference::tile<T>(data->get_data_ptr<T>(),
+                                    data_ptr,
+                                    data->get_output_shape(0),
+                                    tile_v0->get_output_shape(0));
     }
     else
     {
         throw ngraph_error("Unsupported op in tile constant folding.");
     }
 
-    return make_shared<op::Constant>(
+    return make_shared<op::v0::Constant>(
         tile->get_output_element_type(0), tile->get_output_shape(0), data_ptr);
 }
 
 void pass::ConstantFolding::construct_constant_tile()
 {
     auto data_label = make_shared<pattern::op::Label>(
-        element::f32, Shape{2, 2, 3}, pattern::has_class<op::Constant>());
-    auto repeats_label =
-        make_shared<pattern::op::Label>(element::i64, Shape{3}, pattern::has_class<op::Constant>());
+        element::f32, Shape{2, 2, 3}, pattern::has_class<op::v0::Constant>());
+    auto repeats_label = make_shared<pattern::op::Label>(
+        element::i64, Shape{3}, pattern::has_class<op::v0::Constant>());
     auto tile_v0 = make_shared<op::v0::Tile>(data_label, repeats_label);
 
     auto constant_tile_callback = [data_label](pattern::Matcher& m) {
@@ -62,7 +64,7 @@ void pass::ConstantFolding::construct_constant_tile()
 
         auto pattern_map = m.get_pattern_map();
 
-        auto data = static_pointer_cast<op::Constant>(pattern_map[data_label]);
+        auto data = static_pointer_cast<op::v0::Constant>(pattern_map[data_label]);
         auto tile = m.get_match_root();
 
         NGRAPH_CHECK(revalidate_and_ensure_static(tile));
@@ -95,7 +97,7 @@ void pass::ConstantFolding::construct_constant_tile()
         case element::Type_t::u64: replacement = fold_constant_tile<uint64_t>(data, tile); break;
         }
 
-        replace_node(m.get_match_root(), replacement);
+        m.get_match_value().replace(replacement->output(0));
         return true;
     };
 

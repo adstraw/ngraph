@@ -32,6 +32,7 @@
 #include <vector>
 
 #include "ngraph/axis_vector.hpp"
+#include "ngraph/coordinate_diff.hpp"
 #include "ngraph/graph_util.hpp"
 #include "ngraph/node.hpp"
 #include "ngraph/shape.hpp"
@@ -190,6 +191,28 @@ namespace ngraph
     }
 
     template <typename T>
+    std::string to_cpp_string(T value)
+    {
+        std::string rc;
+        if (std::isnan(value))
+        {
+            rc = "NAN";
+        }
+        else if (std::isinf(value))
+        {
+            rc = (value > 0 ? "INFINITY" : "-INFINITY");
+        }
+        else
+        {
+            std::stringstream ss;
+            ss.precision(std::numeric_limits<T>::max_digits10);
+            ss << value;
+            rc = ss.str();
+        }
+        return rc;
+    }
+
+    template <typename T>
     T ceil_div(const T& x, const T& y)
     {
         return (x == 0 ? 0 : (1 + (x - 1) / y));
@@ -222,6 +245,9 @@ namespace ngraph
 
     extern template NGRAPH_API Coordinate apply_permutation<Coordinate>(Coordinate input,
                                                                         AxisVector order);
+
+    extern template NGRAPH_API CoordinateDiff
+        apply_permutation<CoordinateDiff>(CoordinateDiff input, AxisVector order);
 
     extern template NGRAPH_API Strides apply_permutation<Strides>(Strides input, AxisVector order);
 
@@ -421,7 +447,7 @@ namespace ngraph
 
         return static_cast<T>(x);
     }
-} // end namespace ngraph
+}
 
 template <typename T>
 std::vector<T> read_vector(std::shared_ptr<ngraph::runtime::Tensor> tv);

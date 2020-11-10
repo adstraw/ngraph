@@ -27,8 +27,8 @@ TEST(type_prop, nms_incorrect_boxes_rank)
 {
     try
     {
-        const auto boxes = make_shared<op::Parameter>(element::f32, Shape{1, 2, 3, 4});
-        const auto scores = make_shared<op::Parameter>(element::f32, Shape{1, 2, 3});
+        const auto boxes = make_shared<op::v0::Parameter>(element::f32, Shape{1, 2, 3, 4});
+        const auto scores = make_shared<op::v0::Parameter>(element::f32, Shape{1, 2, 3});
 
         make_shared<op::v1::NonMaxSuppression>(boxes, scores);
     }
@@ -42,8 +42,8 @@ TEST(type_prop, nms_incorrect_scores_rank)
 {
     try
     {
-        const auto boxes = make_shared<op::Parameter>(element::f32, Shape{1, 2, 3});
-        const auto scores = make_shared<op::Parameter>(element::f32, Shape{1, 2});
+        const auto boxes = make_shared<op::v0::Parameter>(element::f32, Shape{1, 2, 3});
+        const auto scores = make_shared<op::v0::Parameter>(element::f32, Shape{1, 2});
 
         make_shared<op::v1::NonMaxSuppression>(boxes, scores);
     }
@@ -57,8 +57,8 @@ TEST(type_prop, nms_incorrect_scheme_num_batches)
 {
     try
     {
-        const auto boxes = make_shared<op::Parameter>(element::f32, Shape{1, 2, 3});
-        const auto scores = make_shared<op::Parameter>(element::f32, Shape{2, 2, 3});
+        const auto boxes = make_shared<op::v0::Parameter>(element::f32, Shape{1, 2, 3});
+        const auto scores = make_shared<op::v0::Parameter>(element::f32, Shape{2, 2, 3});
 
         make_shared<op::v1::NonMaxSuppression>(boxes, scores);
     }
@@ -73,8 +73,8 @@ TEST(type_prop, nms_incorrect_scheme_num_boxes)
 {
     try
     {
-        const auto boxes = make_shared<op::Parameter>(element::f32, Shape{1, 2, 3});
-        const auto scores = make_shared<op::Parameter>(element::f32, Shape{1, 2, 3});
+        const auto boxes = make_shared<op::v0::Parameter>(element::f32, Shape{1, 2, 3});
+        const auto scores = make_shared<op::v0::Parameter>(element::f32, Shape{1, 2, 3});
 
         make_shared<op::v1::NonMaxSuppression>(boxes, scores);
     }
@@ -88,11 +88,11 @@ TEST(type_prop, nms_incorrect_scheme_num_boxes)
 
 TEST(type_prop, nms_scalar_inputs_check)
 {
-    const auto boxes = make_shared<op::Parameter>(element::f32, Shape{1, 2, 4});
-    const auto scores = make_shared<op::Parameter>(element::f32, Shape{1, 2, 2});
+    const auto boxes = make_shared<op::v0::Parameter>(element::f32, Shape{1, 2, 4});
+    const auto scores = make_shared<op::v0::Parameter>(element::f32, Shape{1, 2, 2});
 
-    const auto scalar = make_shared<op::Parameter>(element::f32, Shape{});
-    const auto non_scalar = make_shared<op::Parameter>(element::f32, Shape{1});
+    const auto scalar = make_shared<op::v0::Parameter>(element::f32, Shape{});
+    const auto non_scalar = make_shared<op::v0::Parameter>(element::f32, Shape{1});
 
     try
     {
@@ -125,8 +125,8 @@ TEST(type_prop, nms_scalar_inputs_check)
 
 TEST(type_prop, nms_output_shape)
 {
-    const auto boxes = make_shared<op::Parameter>(element::f32, Shape{1, 2, 4});
-    const auto scores = make_shared<op::Parameter>(element::f32, Shape{1, 2, 2});
+    const auto boxes = make_shared<op::v0::Parameter>(element::f32, Shape{1, 2, 4});
+    const auto scores = make_shared<op::v0::Parameter>(element::f32, Shape{1, 2, 2});
 
     const auto nms = make_shared<op::v1::NonMaxSuppression>(boxes, scores);
     const auto nms_out_ps = nms->get_output_partial_shape(0);
@@ -138,46 +138,46 @@ TEST(type_prop, nms_output_shape)
 
 TEST(type_prop, nms_output_shape_2)
 {
-    const auto boxes = make_shared<op::Parameter>(element::f32, Shape{1, 6, 4});
-    const auto scores = make_shared<op::Parameter>(element::f32, Shape{1, 1, 6});
-    const auto max_output_boxes_per_class = op::Constant::create(element::i32, Shape{}, {3});
-    const auto iou_threshold = make_shared<op::Parameter>(element::f32, Shape{});
-    const auto score_threshold = make_shared<op::Parameter>(element::f32, Shape{});
+    const auto boxes = make_shared<op::v0::Parameter>(element::f32, Shape{1, 6, 4});
+    const auto scores = make_shared<op::v0::Parameter>(element::f32, Shape{1, 1, 6});
+    const auto max_output_boxes_per_class = op::v0::Constant::create(element::i32, Shape{}, {3});
+    const auto iou_threshold = make_shared<op::v0::Parameter>(element::f32, Shape{});
+    const auto score_threshold = make_shared<op::v0::Parameter>(element::f32, Shape{});
 
     const auto nms = make_shared<op::v1::NonMaxSuppression>(
         boxes, scores, max_output_boxes_per_class, iou_threshold, score_threshold);
 
-    ASSERT_EQ(nms->get_element_type(), element::i64);
-    ASSERT_EQ(nms->get_shape(), (Shape{3, 3}));
+    ASSERT_EQ(nms->get_output_element_type(0), element::i64);
+    ASSERT_EQ(nms->get_output_shape(0), (Shape{3, 3}));
 }
 
 TEST(type_prop, nms_output_shape_3)
 {
-    const auto boxes = make_shared<op::Parameter>(element::f32, Shape{1, 1, 4});
-    const auto scores = make_shared<op::Parameter>(element::f32, Shape{1, 1, 1});
-    const auto max_output_boxes_per_class = op::Constant::create(element::i16, Shape{}, {3});
-    const auto iou_threshold = make_shared<op::Parameter>(element::f32, Shape{});
-    const auto score_threshold = make_shared<op::Parameter>(element::f32, Shape{});
+    const auto boxes = make_shared<op::v0::Parameter>(element::f32, Shape{1, 1, 4});
+    const auto scores = make_shared<op::v0::Parameter>(element::f32, Shape{1, 1, 1});
+    const auto max_output_boxes_per_class = op::v0::Constant::create(element::i16, Shape{}, {3});
+    const auto iou_threshold = make_shared<op::v0::Parameter>(element::f32, Shape{});
+    const auto score_threshold = make_shared<op::v0::Parameter>(element::f32, Shape{});
 
     const auto nms = make_shared<op::v1::NonMaxSuppression>(
         boxes, scores, max_output_boxes_per_class, iou_threshold, score_threshold);
 
-    ASSERT_EQ(nms->get_element_type(), element::i64);
-    ASSERT_EQ(nms->get_shape(), (Shape{1, 3}));
+    ASSERT_EQ(nms->get_output_element_type(0), element::i64);
+    ASSERT_EQ(nms->get_output_shape(0), (Shape{1, 3}));
 }
 
 TEST(type_prop, nms_dynamic_boxes_and_scores)
 {
-    const auto boxes = make_shared<op::Parameter>(element::f32, PartialShape::dynamic());
-    const auto scores = make_shared<op::Parameter>(element::f32, PartialShape::dynamic());
-    const auto max_output_boxes_per_class = op::Constant::create(element::i16, Shape{}, {3});
-    const auto iou_threshold = make_shared<op::Parameter>(element::f32, Shape{});
-    const auto score_threshold = make_shared<op::Parameter>(element::f32, Shape{});
+    const auto boxes = make_shared<op::v0::Parameter>(element::f32, PartialShape::dynamic());
+    const auto scores = make_shared<op::v0::Parameter>(element::f32, PartialShape::dynamic());
+    const auto max_output_boxes_per_class = op::v0::Constant::create(element::i16, Shape{}, {3});
+    const auto iou_threshold = make_shared<op::v0::Parameter>(element::f32, Shape{});
+    const auto score_threshold = make_shared<op::v0::Parameter>(element::f32, Shape{});
 
     const auto nms = make_shared<op::v1::NonMaxSuppression>(
         boxes, scores, max_output_boxes_per_class, iou_threshold, score_threshold);
 
-    ASSERT_EQ(nms->get_element_type(), element::i64);
+    ASSERT_EQ(nms->get_output_element_type(0), element::i64);
     ASSERT_TRUE(
         nms->get_output_partial_shape(0).same_scheme(PartialShape{Dimension::dynamic(), 3}));
 }
@@ -188,8 +188,8 @@ TEST(type_prop, nms_v3_incorrect_boxes_rank)
 {
     try
     {
-        const auto boxes = make_shared<op::Parameter>(element::f32, Shape{1, 2, 3, 4});
-        const auto scores = make_shared<op::Parameter>(element::f32, Shape{1, 2, 3});
+        const auto boxes = make_shared<op::v0::Parameter>(element::f32, Shape{1, 2, 3, 4});
+        const auto scores = make_shared<op::v0::Parameter>(element::f32, Shape{1, 2, 3});
 
         make_shared<op::v3::NonMaxSuppression>(boxes, scores);
     }
@@ -203,8 +203,8 @@ TEST(type_prop, nms_v3_incorrect_scores_rank)
 {
     try
     {
-        const auto boxes = make_shared<op::Parameter>(element::f32, Shape{1, 2, 3});
-        const auto scores = make_shared<op::Parameter>(element::f32, Shape{1, 2});
+        const auto boxes = make_shared<op::v0::Parameter>(element::f32, Shape{1, 2, 3});
+        const auto scores = make_shared<op::v0::Parameter>(element::f32, Shape{1, 2});
 
         make_shared<op::v3::NonMaxSuppression>(boxes, scores);
     }
@@ -218,8 +218,8 @@ TEST(type_prop, nms_v3_incorrect_scheme_num_batches)
 {
     try
     {
-        const auto boxes = make_shared<op::Parameter>(element::f32, Shape{1, 2, 3});
-        const auto scores = make_shared<op::Parameter>(element::f32, Shape{2, 2, 3});
+        const auto boxes = make_shared<op::v0::Parameter>(element::f32, Shape{1, 2, 3});
+        const auto scores = make_shared<op::v0::Parameter>(element::f32, Shape{2, 2, 3});
 
         make_shared<op::v3::NonMaxSuppression>(boxes, scores);
     }
@@ -234,8 +234,8 @@ TEST(type_prop, nms_v3_incorrect_scheme_num_boxes)
 {
     try
     {
-        const auto boxes = make_shared<op::Parameter>(element::f32, Shape{1, 2, 3});
-        const auto scores = make_shared<op::Parameter>(element::f32, Shape{1, 2, 3});
+        const auto boxes = make_shared<op::v0::Parameter>(element::f32, Shape{1, 2, 3});
+        const auto scores = make_shared<op::v0::Parameter>(element::f32, Shape{1, 2, 3});
 
         make_shared<op::v3::NonMaxSuppression>(boxes, scores);
     }
@@ -249,11 +249,11 @@ TEST(type_prop, nms_v3_incorrect_scheme_num_boxes)
 
 TEST(type_prop, nms_v3_scalar_inputs_check)
 {
-    const auto boxes = make_shared<op::Parameter>(element::f32, Shape{1, 2, 4});
-    const auto scores = make_shared<op::Parameter>(element::f32, Shape{1, 2, 2});
+    const auto boxes = make_shared<op::v0::Parameter>(element::f32, Shape{1, 2, 4});
+    const auto scores = make_shared<op::v0::Parameter>(element::f32, Shape{1, 2, 2});
 
-    const auto scalar = make_shared<op::Parameter>(element::f32, Shape{});
-    const auto non_scalar = make_shared<op::Parameter>(element::f32, Shape{1});
+    const auto scalar = make_shared<op::v0::Parameter>(element::f32, Shape{});
+    const auto non_scalar = make_shared<op::v0::Parameter>(element::f32, Shape{1});
 
     try
     {
@@ -286,8 +286,8 @@ TEST(type_prop, nms_v3_scalar_inputs_check)
 
 TEST(type_prop, nms_v3_output_shape)
 {
-    const auto boxes = make_shared<op::Parameter>(element::f32, Shape{1, 2, 4});
-    const auto scores = make_shared<op::Parameter>(element::f32, Shape{1, 2, 2});
+    const auto boxes = make_shared<op::v0::Parameter>(element::f32, Shape{1, 2, 4});
+    const auto scores = make_shared<op::v0::Parameter>(element::f32, Shape{1, 2, 2});
 
     const auto nms = make_shared<op::v3::NonMaxSuppression>(boxes, scores);
     const auto nms_out_ps = nms->get_output_partial_shape(0);
@@ -299,41 +299,41 @@ TEST(type_prop, nms_v3_output_shape)
 
 TEST(type_prop, nms_v3_output_shape_2)
 {
-    const auto boxes = make_shared<op::Parameter>(element::f32, Shape{1, 6, 4});
-    const auto scores = make_shared<op::Parameter>(element::f32, Shape{1, 1, 6});
-    const auto max_output_boxes_per_class = op::Constant::create(element::i32, Shape{}, {3});
-    const auto iou_threshold = make_shared<op::Parameter>(element::f32, Shape{});
-    const auto score_threshold = make_shared<op::Parameter>(element::f32, Shape{});
+    const auto boxes = make_shared<op::v0::Parameter>(element::f32, Shape{1, 6, 4});
+    const auto scores = make_shared<op::v0::Parameter>(element::f32, Shape{1, 1, 6});
+    const auto max_output_boxes_per_class = op::v0::Constant::create(element::i32, Shape{}, {3});
+    const auto iou_threshold = make_shared<op::v0::Parameter>(element::f32, Shape{});
+    const auto score_threshold = make_shared<op::v0::Parameter>(element::f32, Shape{});
 
     const auto nms = make_shared<op::v3::NonMaxSuppression>(
         boxes, scores, max_output_boxes_per_class, iou_threshold, score_threshold);
 
-    ASSERT_EQ(nms->get_element_type(), element::i64);
-    ASSERT_EQ(nms->get_shape(), (Shape{3, 3}));
+    ASSERT_EQ(nms->get_output_element_type(0), element::i64);
+    ASSERT_EQ(nms->get_output_shape(0), (Shape{3, 3}));
 }
 
 TEST(type_prop, nms_v3_output_shape_3)
 {
-    const auto boxes = make_shared<op::Parameter>(element::f32, Shape{1, 1, 4});
-    const auto scores = make_shared<op::Parameter>(element::f32, Shape{1, 1, 1});
-    const auto max_output_boxes_per_class = op::Constant::create(element::i16, Shape{}, {3});
-    const auto iou_threshold = make_shared<op::Parameter>(element::f32, Shape{});
-    const auto score_threshold = make_shared<op::Parameter>(element::f32, Shape{});
+    const auto boxes = make_shared<op::v0::Parameter>(element::f32, Shape{1, 1, 4});
+    const auto scores = make_shared<op::v0::Parameter>(element::f32, Shape{1, 1, 1});
+    const auto max_output_boxes_per_class = op::v0::Constant::create(element::i16, Shape{}, {3});
+    const auto iou_threshold = make_shared<op::v0::Parameter>(element::f32, Shape{});
+    const auto score_threshold = make_shared<op::v0::Parameter>(element::f32, Shape{});
 
     const auto nms = make_shared<op::v3::NonMaxSuppression>(
         boxes, scores, max_output_boxes_per_class, iou_threshold, score_threshold);
 
-    ASSERT_EQ(nms->get_element_type(), element::i64);
-    ASSERT_EQ(nms->get_shape(), (Shape{1, 3}));
+    ASSERT_EQ(nms->get_output_element_type(0), element::i64);
+    ASSERT_EQ(nms->get_output_shape(0), (Shape{1, 3}));
 }
 
 TEST(type_prop, nms_v3_output_shape_i32)
 {
-    const auto boxes = make_shared<op::Parameter>(element::f32, Shape{1, 1, 4});
-    const auto scores = make_shared<op::Parameter>(element::f32, Shape{1, 1, 1});
-    const auto max_output_boxes_per_class = op::Constant::create(element::i16, Shape{}, {3});
-    const auto iou_threshold = make_shared<op::Parameter>(element::f32, Shape{});
-    const auto score_threshold = make_shared<op::Parameter>(element::f32, Shape{});
+    const auto boxes = make_shared<op::v0::Parameter>(element::f32, Shape{1, 1, 4});
+    const auto scores = make_shared<op::v0::Parameter>(element::f32, Shape{1, 1, 1});
+    const auto max_output_boxes_per_class = op::v0::Constant::create(element::i16, Shape{}, {3});
+    const auto iou_threshold = make_shared<op::v0::Parameter>(element::f32, Shape{});
+    const auto score_threshold = make_shared<op::v0::Parameter>(element::f32, Shape{});
 
     const auto nms =
         make_shared<op::v3::NonMaxSuppression>(boxes,
@@ -345,22 +345,22 @@ TEST(type_prop, nms_v3_output_shape_i32)
                                                true,
                                                element::i32);
 
-    ASSERT_EQ(nms->get_element_type(), element::i32);
-    ASSERT_EQ(nms->get_shape(), (Shape{1, 3}));
+    ASSERT_EQ(nms->get_output_element_type(0), element::i32);
+    ASSERT_EQ(nms->get_output_shape(0), (Shape{1, 3}));
 }
 
 TEST(type_prop, nms_v3_dynamic_boxes_and_scores)
 {
-    const auto boxes = make_shared<op::Parameter>(element::f32, PartialShape::dynamic());
-    const auto scores = make_shared<op::Parameter>(element::f32, PartialShape::dynamic());
-    const auto max_output_boxes_per_class = op::Constant::create(element::i16, Shape{}, {3});
-    const auto iou_threshold = make_shared<op::Parameter>(element::f32, Shape{});
-    const auto score_threshold = make_shared<op::Parameter>(element::f32, Shape{});
+    const auto boxes = make_shared<op::v0::Parameter>(element::f32, PartialShape::dynamic());
+    const auto scores = make_shared<op::v0::Parameter>(element::f32, PartialShape::dynamic());
+    const auto max_output_boxes_per_class = op::v0::Constant::create(element::i16, Shape{}, {3});
+    const auto iou_threshold = make_shared<op::v0::Parameter>(element::f32, Shape{});
+    const auto score_threshold = make_shared<op::v0::Parameter>(element::f32, Shape{});
 
     const auto nms = make_shared<op::v3::NonMaxSuppression>(
         boxes, scores, max_output_boxes_per_class, iou_threshold, score_threshold);
 
-    ASSERT_EQ(nms->get_element_type(), element::i64);
+    ASSERT_EQ(nms->get_output_element_type(0), element::i64);
     ASSERT_TRUE(
         nms->get_output_partial_shape(0).same_scheme(PartialShape{Dimension::dynamic(), 3}));
 }

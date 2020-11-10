@@ -23,13 +23,12 @@
 #include "ngraph/descriptor/input.hpp"
 #include "ngraph/descriptor/layout/tensor_layout.hpp"
 #include "ngraph/graph_util.hpp"
+#include "ngraph/log.hpp"
 #include "ngraph/node.hpp"
 #include "ngraph/op/constant.hpp"
-#include "ngraph/op/get_output_element.hpp"
 #include "ngraph/op/parameter.hpp"
 #include "ngraph/op/result.hpp"
 #include "ngraph/pattern/matcher.hpp"
-#include "ngraph/placement.hpp"
 
 using namespace std;
 using namespace ngraph;
@@ -75,25 +74,6 @@ std::shared_ptr<Node> Node::copy_with_new_inputs(const OutputVector& inputs) con
     return copy_with_new_inputs(inputs, get_control_dependencies());
 }
 
-std::shared_ptr<Node> Node::get_output_as_single_output_node(size_t i)
-{
-    if (i == 0 && get_output_size() == 1)
-    {
-        return shared_from_this();
-    }
-    else
-    {
-        for (auto in : output(i).get_target_inputs())
-        {
-            if (is_type<op::GetOutputElement>(in.get_node()))
-            {
-                return in.get_node()->shared_from_this();
-            }
-        }
-        return make_shared<op::GetOutputElement>(shared_from_this(), i);
-    }
-}
-
 Output<const Node> Node::get_default_output() const
 {
     return output(get_default_output_index());
@@ -114,39 +94,13 @@ size_t Node::no_default_index() const
     NODE_VALIDATION_CHECK(this, false, "Default output not supported");
 }
 
-std::shared_ptr<Node>
-    Node::copy_with_new_inputs(const OutputVector& inputs,
-                               const std::vector<std::shared_ptr<Node>>& control_dependencies) const
+std::shared_ptr<Node> Node::copy_with_new_inputs(const OutputVector& inputs,
+                                                 const NodeVector& control_dependencies) const
 {
     shared_ptr<Node> clone = clone_with_new_inputs(inputs);
     for (auto& cdep : control_dependencies)
     {
         clone->add_control_dependency(cdep);
-    }
-    return clone;
-}
-
-std::shared_ptr<Node> Node::copy_with_new_args(const NodeVector& args) const
-{
-    NODE_VALIDATION_CHECK(
-        this, false, "Internal error: copy_with_new_args not replaced by clone_with_new_inputs");
-}
-
-std::shared_ptr<Node> Node::clone_with_new_inputs(const OutputVector& inputs) const
-{
-    NodeVector args;
-    for (const Output<Node>& input : inputs)
-    {
-        args.push_back(get_output_element(input));
-    }
-    std::shared_ptr<Node> clone = copy_with_new_args(args);
-    // Remove the inserted GOEs
-    for (size_t i = 0; i < inputs.size(); ++i)
-    {
-        if (clone->input_value(i) != inputs.at(i))
-        {
-            clone->set_argument(i, inputs.at(i));
-        }
     }
     return clone;
 }
@@ -179,19 +133,6 @@ void Node::safe_delete(NodeVector& nodes, bool recurse)
     }
 }
 
-void Node::set_arguments(const NodeVector& arguments)
-{
-    OutputVector outputs;
-    for (auto arg : arguments)
-    {
-        for (auto& output : arg->outputs())
-        {
-            outputs.push_back(output);
-        }
-    }
-    set_arguments(outputs);
-}
-
 void Node::set_arguments(const OutputVector& arguments)
 {
     // Add this node as a user of each argument.
@@ -199,7 +140,7 @@ void Node::set_arguments(const OutputVector& arguments)
     for (auto& output : arguments)
     {
         auto output_node = output.get_node();
-        auto& output_descriptor = output_node->get_outputs().at(output.get_index());
+        auto& output_descriptor = output_node->get_output_descriptor(output.get_index());
         m_inputs.emplace_back(this, i++, output_descriptor);
     }
 }
@@ -262,9 +203,7 @@ void Node::set_output_size(size_t n)
     }
 }
 
-void Node::validate_and_infer_types()
-{
-}
+void Node::validate_and_infer_types() {}
 
 void Node::set_input_is_relevant_to_shape(size_t i, bool relevant)
 {
@@ -287,16 +226,6 @@ void Node::set_input_is_relevant_to_value(size_t i, bool relevant)
 void Node::set_output_type(size_t i, const element::Type& element_type, const PartialShape& pshape)
 {
     get_output_descriptor(i).get_tensor_ptr()->set_tensor_type(element_type, pshape);
-}
-
-std::deque<descriptor::Output>& Node::get_outputs()
-{
-    return m_outputs;
-}
-
-const std::deque<descriptor::Output>& Node::get_outputs() const
-{
-    return m_outputs;
 }
 
 bool Node::is_output() const
@@ -340,12 +269,12 @@ void Node::set_friendly_name(const string& name)
     m_friendly_name = name;
 }
 
-Placement Node::get_placement() const
+int32_t Node::get_placement() const
 {
     return m_placement;
 }
 
-void Node::set_placement(Placement placement)
+void Node::set_placement(int32_t placement)
 {
     m_placement = placement;
 }
@@ -498,7 +427,7 @@ std::shared_ptr<Node> Node::get_argument(size_t index) const
 {
     NGRAPH_CHECK(
         index < m_inputs.size(), "index '", index, "' out of range in get_argument(size_t index)");
-    return input_value(index).as_single_output_node();
+    return input_value(index).get_node_shared_ptr();
 }
 
 Node* Node::get_input_node_ptr(size_t index) const
@@ -532,7 +461,7 @@ NodeVector Node::get_arguments() const
     return result;
 }
 
-const std::vector<std::shared_ptr<Node>>& Node::get_control_dependencies() const
+const NodeVector& Node::get_control_dependencies() const
 {
     return m_control_dependencies;
 }
@@ -669,15 +598,6 @@ const element::Type& Node::get_output_element_type(size_t i) const
     return m_outputs[i].get_element_type();
 }
 
-const element::Type& Node::get_element_type() const
-{
-    if (get_output_size() != 1)
-    {
-        throw ngraph_error("get_element_type() must be called on a node with exactly one output.");
-    }
-    return get_output_element_type(0);
-}
-
 const Shape& Node::get_output_shape(size_t i) const
 {
     NGRAPH_CHECK(
@@ -692,33 +612,11 @@ const PartialShape& Node::get_output_partial_shape(size_t i) const
     return m_outputs[i].get_partial_shape();
 }
 
-const Shape& Node::get_shape() const
-{
-    if (get_output_size() != 1)
-    {
-        stringstream es;
-        es << "get_shape() must be called on a node with exactly one output (" << description()
-           << ")";
-        throw ngraph_error(es);
-    }
-    return get_output_shape(0);
-}
-
 shared_ptr<descriptor::Tensor> Node::get_output_tensor_ptr(size_t i) const
 {
     NGRAPH_CHECK(
         i < m_outputs.size(), "index '", i, "' out of range in get_output_tensor_ptr(size_t i)");
     return m_outputs[i].get_tensor_ptr();
-}
-
-shared_ptr<descriptor::Tensor> Node::get_output_tensor_ptr() const
-{
-    if (get_output_size() != 1)
-    {
-        throw ngraph_error(
-            "get_output_tensor_ptr() must be called on a node with exactly one output.");
-    }
-    return m_outputs[0].get_tensor_ptr();
 }
 
 const std::vector<descriptor::Input*>& Node::get_output_inputs(size_t i) const
@@ -759,15 +657,6 @@ const string& Node::get_output_tensor_name(size_t i) const
     NGRAPH_CHECK(
         i < m_outputs.size(), "index '", i, "' out of range in get_output_tensor_name(size_t i)");
     return m_outputs[i].get_tensor().get_name();
-}
-
-descriptor::Tensor& Node::get_output_tensor() const
-{
-    if (get_output_size() != 1)
-    {
-        throw ngraph_error("get_output_tensor() must be called on a node with exactly one output.");
-    }
-    return get_output_tensor(0);
 }
 
 size_t Node::get_input_size() const
@@ -843,23 +732,6 @@ std::string ngraph::node_validation_failure_loc_string(const Node* node)
     return ss.str();
 }
 
-const std::shared_ptr<Node>& ngraph::check_single_output_arg(const std::shared_ptr<Node>& node,
-                                                             size_t i)
-{
-    NGRAPH_CHECK(
-        node->get_output_size() == 1, "Argument ", i, node, " must produce exactly one value.");
-    return node;
-}
-
-const NodeVector& ngraph::check_single_output_args(const NodeVector& args)
-{
-    for (size_t i = 0; i < args.size(); ++i)
-    {
-        ngraph::check_single_output_arg(args.at(i), i);
-    }
-    return args;
-}
-
 OutputVector ngraph::as_output_vector(const NodeVector& args)
 {
     OutputVector output_vector;
@@ -870,24 +742,14 @@ OutputVector ngraph::as_output_vector(const NodeVector& args)
     return output_vector;
 }
 
-NodeVector ngraph::as_node_vector(const OutputVector& values)
-{
-    NodeVector node_vector;
-    for (auto& value : values)
-    {
-        node_vector.push_back(value.as_single_output_node());
-    }
-    return node_vector;
-}
-
 ResultVector ngraph::as_result_vector(const OutputVector& values)
 {
     ResultVector result;
     for (auto value : values)
     {
         shared_ptr<Node> node = value.get_node_shared_ptr();
-        result.push_back(is_type<op::Result>(node) ? as_type_ptr<op::Result>(node)
-                                                   : make_shared<op::Result>(value));
+        result.push_back(is_type<op::v0::Result>(node) ? as_type_ptr<op::v0::Result>(node)
+                                                       : make_shared<op::v0::Result>(value));
     }
     return result;
 }
@@ -1057,9 +919,9 @@ vector<Input<Node>> Node::inputs()
     return result;
 }
 
-vector<Output<Node>> Node::input_values() const
+OutputVector Node::input_values() const
 {
-    vector<Output<Node>> result;
+    OutputVector result;
 
     for (size_t i = 0; i < get_input_size(); i++)
     {
@@ -1081,9 +943,9 @@ vector<Input<const Node>> Node::inputs() const
     return result;
 }
 
-vector<Output<Node>> Node::outputs()
+OutputVector Node::outputs()
 {
-    vector<Output<Node>> result;
+    OutputVector result;
 
     for (size_t i = 0; i < get_output_size(); i++)
     {
@@ -1105,7 +967,8 @@ vector<Output<const Node>> Node::outputs() const
     return result;
 }
 
-bool Node::evaluate(const HostTensorVector& output_values, const HostTensorVector& input_values)
+bool Node::evaluate(const HostTensorVector& output_values,
+                    const HostTensorVector& input_values) const
 {
     return false;
 }
@@ -1138,9 +1001,62 @@ bool Node::constant_fold(OutputVector& output_values, const OutputVector& input_
     {
         for (size_t i = 0; i < output_tensors.size(); ++i)
         {
-            output_values[i] = make_shared<op::Constant>(output_tensors[i]);
+            output_values[i] = make_shared<op::v0::Constant>(output_tensors[i]);
         }
         return true;
     }
     return false;
+}
+
+constexpr DiscreteTypeInfo AttributeAdapter<shared_ptr<Node>>::type_info;
+
+AttributeAdapter<std::shared_ptr<Node>>::AttributeAdapter(std::shared_ptr<Node>& value)
+    : m_ref(value)
+{
+}
+
+bool AttributeAdapter<std::shared_ptr<Node>>::visit_attributes(AttributeVisitor& visitor)
+{
+    auto original_id = visitor.get_registered_node_id(m_ref);
+    auto id = original_id;
+    visitor.on_attribute("ID", id);
+    if (id != original_id)
+    {
+        m_ref = visitor.get_registered_node(id);
+    }
+    return true;
+}
+
+constexpr DiscreteTypeInfo AttributeAdapter<NodeVector>::type_info;
+
+AttributeAdapter<NodeVector>::AttributeAdapter(NodeVector& ref)
+    : m_ref(ref)
+{
+}
+
+bool AttributeAdapter<NodeVector>::visit_attributes(AttributeVisitor& visitor)
+{
+    int64_t size = m_ref.size();
+    visitor.on_attribute("size", size);
+    if (size != m_ref.size())
+    {
+        m_ref.resize(size);
+    }
+    ostringstream index;
+    for (int64_t i = 0; i < size; i++)
+    {
+        index.str("");
+        index << i;
+        string id;
+        if (m_ref[i])
+        {
+            id = visitor.get_registered_node_id(m_ref[i]);
+        }
+        visitor.on_attribute(index.str(), id);
+        if (!m_ref[i])
+        {
+            m_ref[i] = visitor.get_registered_node(id);
+        }
+    }
+    return true;
 }

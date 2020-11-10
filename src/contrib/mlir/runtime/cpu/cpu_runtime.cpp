@@ -15,7 +15,8 @@
 //*****************************************************************************
 
 // NOTE: This file follows nGraph format style.
-// Follows nGraph naming convention for public APIs only, else MLIR naming convention.
+// Follows nGraph naming convention for public APIs only, else MLIR naming
+// convention.
 
 #include "cpu_runtime.hpp"
 #include "contrib/mlir/backend/cpu/cpu_backend.hpp"
@@ -25,6 +26,7 @@
 #include <llvm/Analysis/TargetTransformInfo.h>
 #include <llvm/ExecutionEngine/Orc/JITTargetMachineBuilder.h>
 #include <llvm/IR/Module.h>
+#include <llvm/Support/CommandLine.h>
 #include <llvm/Support/ErrorOr.h>
 #include <llvm/Support/MemoryBuffer.h>
 #include <llvm/Support/SourceMgr.h>
@@ -35,9 +37,9 @@
 #include <mlir/ExecutionEngine/OptUtils.h>
 #include <mlir/IR/Function.h>
 
+using llvm::ArrayRef;
 using llvm::SmallVector;
 using llvm::StringRef;
-using llvm::ArrayRef;
 
 using namespace ngraph;
 using namespace ngraph::runtime::ngmlir;
@@ -53,7 +55,8 @@ static llvm::cl::opt<std::string>
     clObjectFilename("ngraph-mlir-object-filename",
                      llvm::cl::desc("Dump MLIR JITted-compiled object to file jitted_mlir.o"));
 
-// The bare pointer calling convention lowers memref arguments to bare pointers to the memref
+// The bare pointer calling convention lowers memref arguments to bare pointers
+// to the memref
 // element type.
 llvm::cl::opt<bool> clEnableBarePtrMemRefLowering(
     "ngraph-bare-ptr-memref-lowering",
@@ -67,8 +70,10 @@ void MLIRCPURuntime::run(const std::vector<MemRefArg>& args, bool firstIteration
 
 void MLIRCPURuntime::run_internal(const std::vector<MemRefArg>& args, bool firstIteration)
 {
-    // Create an MLIR execution engine. We use a null MLIR pass manager for now to make sure we
-    // don't run MLIR passes that were already run. We also pass a default transformer created with
+    // Create an MLIR execution engine. We use a null MLIR pass manager for now to
+    // make sure we
+    // don't run MLIR passes that were already run. We also pass a default
+    // transformer created with
     // the default or user-provided optimization level.
 
     if (!m_engine)
@@ -86,7 +91,8 @@ void MLIRCPURuntime::run_internal(const std::vector<MemRefArg>& args, bool first
     cleanup();
 }
 
-// Binds MLIR function arguments to the proper values. This includes externally allocated tensors
+// Binds MLIR function arguments to the proper values. This includes externally
+// allocated tensors
 // helpers to be used inside the function.
 void MLIRCPURuntime::bindArguments(const std::vector<MemRefArg>& args)
 {
@@ -99,8 +105,10 @@ void MLIRCPURuntime::bindArguments(const std::vector<MemRefArg>& args)
     // Set external arguments
     m_externalTensors = &args;
 
-    // Create list with a type-erased double pointer for each invocation arguments.
-    // We currently use 'allocateMemrefArgs', which creates the arguments list per call ABI (see
+    // Create list with a type-erased double pointer for each invocation
+    // arguments.
+    // We currently use 'allocateMemrefArgs', which creates the arguments list per
+    // call ABI (see
     // comment below).
     // StaticMemRef is just a struct with the actual pointer to the data.
 
@@ -133,19 +141,22 @@ void MLIRCPURuntime::bindArguments(const std::vector<MemRefArg>& args)
         }
         else
         {
-            // Custom memref lowering lowers memref arguments to bare pointers to tensors.
+            // Custom memref lowering lowers memref arguments to bare pointers to
+            // tensors.
             auto** memRefArg = reinterpret_cast<void**>(m_invokeArgs[i]);
             *memRefArg = (*m_externalTensors)[i].m_tensor;
         }
     }
 }
 
-// Lowers standard dialect to LLVM dialect and uses the MLIR execution engine to execute the code.
+// Lowers standard dialect to LLVM dialect and uses the MLIR execution engine to
+// execute the code.
 void MLIRCPURuntime::execute(bool firstIteration)
 {
     // Invoke the JIT-compiled function with the arguments. Note that, for API
     // uniformity reasons, it takes a list of type-erased pointers to arguments.
-    // Please, note that 'invoke' method is overloaded with a parameter pack version.
+    // Please, note that 'invoke' method is overloaded with a parameter pack
+    // version.
     // Make sure the MutableArrayRef version is invoked.
     if (!clEnableBarePtrMemRefLowering)
     {
@@ -197,14 +208,16 @@ void MLIRCPURuntime::cleanup()
         }
         else
         {
-            // Custom memref lowering lowers memref arguments to bare pointers to tensors.
+            // Custom memref lowering lowers memref arguments to bare pointers to
+            // tensors.
             auto** memRefArg = reinterpret_cast<void**>(arg);
             free(memRefArg);
         }
     }
 }
 
-// The default call ABI takes a single arg pointer (argPtr) pointing to a list of args.
+// The default call ABI takes a single arg pointer (argPtr) pointing to a list
+// of args.
 // Each arg is a  pointer to a StaticMemRef which contains a data pointer
 //
 // The args are laid out as follows
@@ -212,7 +225,8 @@ void MLIRCPURuntime::cleanup()
 //          arg[1]-> StaticMemRef -> <data>
 //          ...
 //
-// The bare pointer ABI takes a single arg pointer pointing to data for that MemRef. Not extra
+// The bare pointer ABI takes a single arg pointer pointing to data for that
+// MemRef. Not extra
 // information about the MemRef is passed at the moment. Example:
 //
 // Args are laid out as follows:
@@ -234,7 +248,8 @@ SmallVector<void*, 8> MLIRCPURuntime::allocateMemrefArgs()
         }
         else
         {
-            // Custom memref lowering lowers memref arguments to bare pointers to tensors.
+            // Custom memref lowering lowers memref arguments to bare pointers to
+            // tensors.
             auto** arg = reinterpret_cast<void**>(malloc(sizeof(void**)));
             *arg = reinterpret_cast<void*>(malloc(sizeof(void*)));
             args.push_back(arg);
@@ -247,8 +262,10 @@ StaticMemRef* MLIRCPURuntime::allocateDefaultMemrefDescriptor(size_t rank)
 {
     // We only use StaticMemRef because that's what MLIR currently offers.
     // We should expand this with different types and dynamic MemRefs
-    // We allocate 2 * rank * sizeof(int64_t) for the last element "int64_t shapeAndStrides[]"
-    // in StaticMemRef because shape and strides each needs rank * sizeof(int64_t).
+    // We allocate 2 * rank * sizeof(int64_t) for the last element "int64_t
+    // shapeAndStrides[]"
+    // in StaticMemRef because shape and strides each needs rank *
+    // sizeof(int64_t).
     auto* descriptor =
         reinterpret_cast<StaticMemRef*>(malloc(sizeof(StaticMemRef) + 2 * rank * sizeof(int64_t)));
     NGRAPH_CHECK(descriptor != nullptr, "NULL MemRef descriptor");

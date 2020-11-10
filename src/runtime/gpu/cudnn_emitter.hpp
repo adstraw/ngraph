@@ -29,18 +29,16 @@
 #include "cudnn_host_parameters.hpp"
 #include "gpu_runtime_context.hpp"
 #include "ngraph/axis_set.hpp"
+#include "ngraph/op/convolution.hpp"
+#include "ngraph/op/max.hpp"
+#include "ngraph/op/max_pool.hpp"
+#include "ngraph/op/min.hpp"
 #include "ngraph/shape.hpp"
 
 namespace ngraph
 {
     namespace op
     {
-        class Convolution;
-        class ConvolutionBackpropData;
-        class ConvolutionBackpropFilters;
-        class MaxPool;
-        class Max;
-        class Min;
         namespace gpu
         {
             class Rnn;
@@ -63,12 +61,12 @@ namespace ngraph
                 friend class GPUPrimitiveEmitter;
 
             public:
-                size_t build_primitive(const op::Convolution* node);
-                size_t build_primitive(const op::ConvolutionBackpropData* node);
-                size_t build_primitive(const op::ConvolutionBackpropFilters* node);
-                size_t build_primitive(const op::MaxPool* node);
-                size_t build_primitive(const op::Max* node);
-                size_t build_primitive(const op::Min* node);
+                size_t build_primitive(const op::v0::Convolution* node);
+                size_t build_primitive(const op::v0::ConvolutionBackpropData* node);
+                size_t build_primitive(const op::v0::ConvolutionBackpropFilters* node);
+                size_t build_primitive(const op::v0::MaxPool* node);
+                size_t build_primitive(const op::v0::Max* node);
+                size_t build_primitive(const op::v0::Min* node);
                 size_t build_primitive(const op::gpu::Rnn* node);
 
             public:

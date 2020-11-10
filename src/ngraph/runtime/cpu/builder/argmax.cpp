@@ -30,11 +30,12 @@ namespace ngraph
         namespace cpu
         {
             template <>
-            void Builder::BUILDER_DECL(ngraph::op::ArgMax)
+            void Builder::BUILDER_DECL(ngraph::op::v0::ArgMax)
             {
                 auto& functors = external_function->get_functors();
 
-                const ngraph::op::ArgMax* argmax = static_cast<const ngraph::op::ArgMax*>(node);
+                const ngraph::op::v0::ArgMax* argmax =
+                    static_cast<const ngraph::op::v0::ArgMax*>(node);
                 CPUKernelFunctor functor;
 
                 auto arg_buffer_index = external_function->get_buffer_index(args[0].get_name());
@@ -201,6 +202,60 @@ namespace ngraph
                         };
                     }
                 }
+                else if (element_type == element::u32)
+                {
+                    if (is_int64)
+                    {
+                        std::function<decltype(runtime::cpu::kernel::argmax<uint32_t, int64_t, 1>)>
+                            kernel;
+
+                        SELECT_KERNEL_RANK(kernel,
+                                           uint32_t,
+                                           int64_t,
+                                           in_shape.size(),
+                                           runtime::cpu::kernel::argmax);
+
+                        functor = [&,
+                                   kernel,
+                                   in_shape,
+                                   out_shape,
+                                   axis,
+                                   arg_buffer_index,
+                                   out_buffer_index](CPURuntimeContext* ctx,
+                                                     CPUExecutionContext* ectx) {
+                            kernel(ctx->buffer_data[arg_buffer_index],
+                                   ctx->buffer_data[out_buffer_index],
+                                   in_shape,
+                                   out_shape,
+                                   axis,
+                                   ectx->arena);
+                        };
+                    }
+                    else
+                    {
+                        std::function<decltype(runtime::cpu::kernel::argmax<uint32_t, int, 1>)>
+                            kernel;
+
+                        SELECT_KERNEL_RANK(
+                            kernel, uint32_t, int, in_shape.size(), runtime::cpu::kernel::argmax);
+
+                        functor = [&,
+                                   kernel,
+                                   in_shape,
+                                   out_shape,
+                                   axis,
+                                   arg_buffer_index,
+                                   out_buffer_index](CPURuntimeContext* ctx,
+                                                     CPUExecutionContext* ectx) {
+                            kernel(ctx->buffer_data[arg_buffer_index],
+                                   ctx->buffer_data[out_buffer_index],
+                                   in_shape,
+                                   out_shape,
+                                   axis,
+                                   ectx->arena);
+                        };
+                    }
+                }
                 else
                 {
                     throw ngraph_error("Unsupported type in CPU Builder for ArgMax");
@@ -209,7 +264,7 @@ namespace ngraph
                 functors.emplace_back(functor);
             }
 
-            void register_builders_argmax_cpp() { REGISTER_OP_BUILDER(ArgMax); }
+            void register_builders_argmax_cpp() { REGISTER_OP_BUILDER(ngraph::op::v0::ArgMax); }
         }
     }
 }

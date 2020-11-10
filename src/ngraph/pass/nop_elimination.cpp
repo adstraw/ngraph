@@ -27,15 +27,15 @@
 #include "ngraph/op/constant.hpp"
 #include "ngraph/op/convert.hpp"
 #include "ngraph/op/experimental/shape_of.hpp"
-#include "ngraph/op/fused/squeeze.hpp"
-#include "ngraph/op/fused/unsqueeze.hpp"
 #include "ngraph/op/non_zero.hpp"
 #include "ngraph/op/pad.hpp"
 #include "ngraph/op/reshape.hpp"
 #include "ngraph/op/slice.hpp"
+#include "ngraph/op/squeeze.hpp"
 #include "ngraph/op/stop_gradient.hpp"
 #include "ngraph/op/sum.hpp"
-#include "ngraph/opsets/opset3.hpp"
+#include "ngraph/op/unsqueeze.hpp"
+#include "ngraph/opset/opset3.hpp"
 #include "ngraph/util.hpp"
 #include "nop_elimination.hpp"
 
@@ -331,7 +331,17 @@ static bool eliminate_squeeze(const std::shared_ptr<Node>& node)
 
     auto squeeze = as_type_ptr<opset3::Squeeze>(node);
     auto input = squeeze->input_value(0).get_node_shared_ptr();
-    auto data_shape = input->input_value(0).get_partial_shape();
+
+    PartialShape data_shape;
+    if (input->is_parameter())
+    {
+        data_shape = squeeze->input_value(0).get_partial_shape();
+    }
+    else
+    {
+        data_shape = input->input_value(0).get_partial_shape();
+    }
+
     auto unsqueeze = as_type_ptr<opset3::Unsqueeze>(input);
     auto replace_squeeze_only = [&](const vector<int64_t>& axes) {
         auto axes_const = opset3::Constant::create<int64_t>(element::i64, Shape{axes.size()}, axes);

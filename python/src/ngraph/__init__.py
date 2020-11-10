@@ -68,7 +68,6 @@ from ngraph.ops import floor_mod
 from ngraph.ops import gather
 from ngraph.ops import gather_tree
 from ngraph.ops import gelu
-from ngraph.ops import get_output_element
 from ngraph.ops import greater
 from ngraph.ops import greater_equal
 from ngraph.ops import grn
@@ -126,7 +125,6 @@ from ngraph.ops import rnn_cell
 from ngraph.ops import roi_align
 from ngraph.ops import roi_pooling
 from ngraph.ops import scatter_elements_update
-from ngraph.ops import scatter_nd_update
 from ngraph.ops import scatter_update
 from ngraph.ops import select
 from ngraph.ops import selu

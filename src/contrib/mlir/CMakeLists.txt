@@ -14,6 +14,10 @@
 # limitations under the License.
 # ******************************************************************************
 
+if (NOT (NGRAPH_MLIR_ENABLE OR NGRAPH_CPU_MLIR_ENABLE))
+    return()
+endif()
+
 include_directories(
     ${NGRAPH_INCLUDE_PATH}
     ${MLIR_LLVM_INCLUDE_PATH}
@@ -36,104 +40,89 @@ set(SRC
     core/pass/ng_dialect_builder.hpp
     core/pass/ng_dialect_fused_ops.cpp
     core/pass/ng_dialect_fused_ops.hpp
+    core/pass/ng_op_fusion.cpp
+    core/pass/ng_op_fusion.hpp
     runtime/cpu/memory_manager.cpp
     runtime/cpu/cpu_runtime.cpp
     runtime/cpu/cpu_callbacks.cpp
     utils.cpp
 )
 
-add_library(mlir_backend SHARED ${SRC})
+add_library(mlir_llvm_backend SHARED ${SRC})
 
 llvm_map_components_to_libnames(llvm_libs support core irreader)
 
 # Link MLIR libs
 target_link_libraries(
-    mlir_backend PRIVATE 
+    mlir_llvm_backend PRIVATE
+    MLIRAffineOps
+    MLIRAffineEDSC
     MLIRAffineToStandard
     MLIRAnalysis
     MLIREDSC
     MLIRExecutionEngine
     MLIRIR
     MLIRLLVMIR
-    MLIRLoopToStandard
+    MLIRSCFToStandard
+    MLIRStandardOps
     MLIRStandardToLLVM
     MLIRParser
     MLIRPass
     MLIRTargetLLVMIR
     MLIRTransforms
     MLIRSupport
+    MLIRAffineTransforms
 )
 # some libs need whole archive linkage because of Globals static initialization
-function(whole_archive_link target)
-    if("${CMAKE_SYSTEM_NAME}" STREQUAL "Darwin")
-        set(link_flags "-L${LLVM_BUILD_LIBRARY_DIR} -Wl,-force_load ")
-        FOREACH(LIB ${ARGN})
-            string(CONCAT link_flags ${link_flags} "${LIB} ")
-        ENDFOREACH(LIB)
-    else()
-        set(link_flags "-Llib -Wl,--whole-archive,")
-        FOREACH(LIB ${ARGN})
-            string(CONCAT link_flags ${link_flags} "${LIB},")
-        ENDFOREACH(LIB)
-        string(CONCAT link_flags ${link_flags} "--no-whole-archive")
-    endif()
-    message(STATUS "MLIR Ops link flag: ${link_flags}" )
+if("${CMAKE_SYSTEM_NAME}" STREQUAL "Darwin")
+    set(NGRAPH_MLIR_WHOLE_ARCHIVE_PRE "-Wl,-force_load")
+else()
+    set(NGRAPH_MLIR_WHOLE_ARCHIVE_PRE "-Wl,--whole-archive")
+    set(NGRAPH_MLIR_WHOLE_ARCHIVE_POST "-Wl,--no-whole-archive")
+endif()
 
-    set_target_properties(${target} PROPERTIES LINK_FLAGS ${link_flags})
-endfunction(whole_archive_link)
+#target_link_libraries(
+#    mlir_llvm_backend PRIVATE
+#    ${NGRAPH_MLIR_WHOLE_ARCHIVE_PRE}
+#    MLIRAffineOps
+#    MLIRStandardOps
+#    ${NGRAPH_MLIR_WHOLE_ARCHIVE_POST}
+#)
 
-set(LIBS
-    ${LLVM_BUILD_LIBRARY_DIR}/libMLIRAffineOps.a
-    ${LLVM_BUILD_LIBRARY_DIR}/libMLIRStandardOps.a
-)
-whole_archive_link(mlir_backend ${LIBS})
 # Link LLVM libs
 target_link_libraries(
-    mlir_backend PRIVATE 
+    mlir_llvm_backend PRIVATE
     ${llvm_libs}
 )
 
-# Link ngraph 
-target_link_libraries(mlir_backend PUBLIC ngraph libmkl libmkldnn)
-target_include_directories(mlir_backend SYSTEM PUBLIC libmkldnn)
-
-# table-gen dialect ops
-# include table-gen helpers
-include(${LLVM_DIR}/TableGen.cmake)
-
-function(ngraph_tablegen ofn)
-    tablegen(MLIR ${ARGV} "-I${MLIR_SRC_INCLUDE_PATH}" "-I${MLIR_BIN_INCLUDE_PATH}")
-    set(TABLEGEN_OUTPUT ${TABLEGEN_OUTPUT} ${CMAKE_CURRENT_BINARY_DIR}/${ofn} PARENT_SCOPE)
-endfunction()
-
-
-set(MLIR_TABLEGEN_EXE mlir-tblgen)
+# Link ngraph
+target_link_libraries(mlir_llvm_backend PUBLIC ngraph libmkl DNNL::dnnl)
 
 # table-gen ops.td
 set(LLVM_TARGET_DEFINITIONS core/ngraph_dialect/ops.td)
-ngraph_tablegen(ops.h.inc -gen-op-decls)
-ngraph_tablegen(ops.cpp.inc -gen-op-defs)
+mlir_tablegen(ops.h.inc -gen-op-decls)
+mlir_tablegen(ops.cpp.inc -gen-op-defs)
 add_public_tablegen_target(ngraph_ops_gen)
 
 # table-gen ops_interfaces.td
 set(LLVM_TARGET_DEFINITIONS core/ngraph_dialect/ops_interfaces.td)
-ngraph_tablegen(ops_interfaces.h.inc -gen-op-interface-decls)
-ngraph_tablegen(ops_interfaces.cpp.inc -gen-op-interface-defs)
+mlir_tablegen(ops_interfaces.h.inc -gen-op-interface-decls)
+mlir_tablegen(ops_interfaces.cpp.inc -gen-op-interface-defs)
 add_public_tablegen_target(ngraph_ops_interfaces_gen)
 
 # tabel-gen ops attributes.td
 set(LLVM_TARGET_DEFINITIONS core/ngraph_dialect/ops_attributes.td)
-ngraph_tablegen(ops_attributes.h.inc -gen-enum-decls)
-ngraph_tablegen(ops_attributes.cpp.inc -gen-enum-defs)
+mlir_tablegen(ops_attributes.h.inc -gen-enum-decls)
+mlir_tablegen(ops_attributes.cpp.inc -gen-enum-defs)
 add_public_tablegen_target(ngraph_ops_attributes_gen)
 
 # tabel-gen ops fused_ops_pattern.td
 set(LLVM_TARGET_DEFINITIONS core/pass/fused_ops_pattern.td)
-ngraph_tablegen(fused_ops_pattern.h.inc -gen-rewriters)
+mlir_tablegen(fused_ops_pattern.h.inc -gen-rewriters)
 add_public_tablegen_target(ngraph_ops_pattern_gen)
 
-add_dependencies(mlir_backend ngraph_ops_gen ngraph_ops_interfaces_gen ngraph_ops_attributes_gen ngraph_ops_pattern_gen)
+add_dependencies(mlir_llvm_backend ngraph_ops_gen ngraph_ops_interfaces_gen ngraph_ops_attributes_gen ngraph_ops_pattern_gen)
 
-target_include_directories(mlir_backend PRIVATE ${CMAKE_CURRENT_BINARY_DIR})
+target_include_directories(mlir_llvm_backend PRIVATE ${CMAKE_CURRENT_BINARY_DIR})
 
-install(TARGETS mlir_backend DESTINATION ${NGRAPH_INSTALL_LIB})
+install(TARGETS mlir_llvm_backend DESTINATION ${NGRAPH_INSTALL_LIB})

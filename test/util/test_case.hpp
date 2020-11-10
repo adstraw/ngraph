@@ -147,7 +147,7 @@ namespace ngraph
                 NGRAPH_CHECK(m_output_index < results.size(),
                              "All function results already have expected outputs.");
 
-                auto function_output_type = results.at(m_output_index)->get_element_type();
+                auto function_output_type = results.at(m_output_index)->get_output_element_type(0);
 
                 const auto& output_pshape = results.at(m_output_index)->get_output_partial_shape(0);
                 NGRAPH_CHECK(
@@ -157,7 +157,7 @@ namespace ngraph
                     " Output shape: ",
                     output_pshape);
 
-                m_expected_outputs.emplace_back(std::make_shared<ngraph::op::Constant>(
+                m_expected_outputs.emplace_back(std::make_shared<ngraph::op::v0::Constant>(
                     function_output_type, expected_shape, values));
 
                 ++m_output_index;
@@ -166,7 +166,7 @@ namespace ngraph
             template <typename T>
             void add_expected_output(const std::vector<T>& values)
             {
-                auto shape = m_function->get_results().at(m_output_index)->get_shape();
+                auto shape = m_function->get_results().at(m_output_index)->get_output_shape(0);
                 add_expected_output<T>(shape, values);
             }
 
@@ -187,13 +187,13 @@ namespace ngraph
                 add_expected_output<T>(expected_shape, value);
             }
 
-            void run(size_t tolerance_bits = DEFAULT_FLOAT_TOLERANCE_BITS);
+            ::testing::AssertionResult run(size_t tolerance_bits = DEFAULT_FLOAT_TOLERANCE_BITS);
 
         private:
             template <typename T>
             typename std::enable_if<std::is_floating_point<T>::value,
                                     ::testing::AssertionResult>::type
-                compare_values(const std::shared_ptr<ngraph::op::Constant>& expected_results,
+                compare_values(const std::shared_ptr<ngraph::op::v0::Constant>& expected_results,
                                const std::shared_ptr<ngraph::runtime::Tensor>& results)
             {
                 const auto expected = expected_results->get_vector<T>();
@@ -209,7 +209,7 @@ namespace ngraph
 
             template <typename T>
             typename std::enable_if<std::is_integral<T>::value, ::testing::AssertionResult>::type
-                compare_values(const std::shared_ptr<ngraph::op::Constant>& expected_results,
+                compare_values(const std::shared_ptr<ngraph::op::v0::Constant>& expected_results,
                                const std::shared_ptr<ngraph::runtime::Tensor>& results)
             {
                 const auto expected = expected_results->get_vector<T>();
@@ -226,7 +226,7 @@ namespace ngraph
             // used for float16 and bfloat 16 comparisons
             template <typename T>
             typename std::enable_if<std::is_class<T>::value, ::testing::AssertionResult>::type
-                compare_values(const std::shared_ptr<ngraph::op::Constant>& expected_results,
+                compare_values(const std::shared_ptr<ngraph::op::v0::Constant>& expected_results,
                                const std::shared_ptr<ngraph::runtime::Tensor>& results)
             {
                 const auto expected = expected_results->get_vector<T>();
@@ -252,7 +252,7 @@ namespace ngraph
             }
 
             using value_comparator_function = std::function<::testing::AssertionResult(
-                const std::shared_ptr<ngraph::op::Constant>&,
+                const std::shared_ptr<ngraph::op::v0::Constant>&,
                 const std::shared_ptr<ngraph::runtime::Tensor>&)>;
 
 #define REGISTER_COMPARATOR(element_type_, type_)                                                  \
@@ -286,7 +286,7 @@ namespace ngraph
             std::shared_ptr<ngraph::runtime::Executable> m_executable;
             std::vector<std::shared_ptr<ngraph::runtime::Tensor>> m_input_tensors;
             std::vector<std::shared_ptr<ngraph::runtime::Tensor>> m_result_tensors;
-            std::vector<std::shared_ptr<ngraph::op::Constant>> m_expected_outputs;
+            std::vector<std::shared_ptr<ngraph::op::v0::Constant>> m_expected_outputs;
             size_t m_input_index = 0;
             size_t m_output_index = 0;
             bool m_dump_results = false;

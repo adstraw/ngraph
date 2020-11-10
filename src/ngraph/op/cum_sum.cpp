@@ -37,7 +37,7 @@ op::v0::CumSum::CumSum(const Output<Node>& arg,
 }
 
 op::v0::CumSum::CumSum(const Output<Node>& arg, const bool exclusive, const bool reverse)
-    : Op({arg, op::Constant::create(element::i32, Shape{}, {0})})
+    : Op({arg, op::v0::Constant::create(element::i32, Shape{}, {0})})
     , m_exclusive(exclusive)
     , m_reverse(reverse)
 {
@@ -74,7 +74,7 @@ void op::v0::CumSum::validate_and_infer_types()
 shared_ptr<Node> op::v0::CumSum::clone_with_new_inputs(const OutputVector& new_args) const
 {
     check_new_args_count(this, new_args);
-    return make_shared<op::CumSum>(new_args.at(0), new_args.at(1), m_exclusive, m_reverse);
+    return make_shared<op::v0::CumSum>(new_args.at(0), new_args.at(1), m_exclusive, m_reverse);
 }
 
 void op::v0::CumSum::generate_adjoints(autodiff::Adjoints& adjoints, const OutputVector& deltas)
@@ -86,5 +86,5 @@ void op::v0::CumSum::generate_adjoints(autodiff::Adjoints& adjoints, const Outpu
 
 shared_ptr<Node> op::v0::CumSum::get_default_value() const
 {
-    return ngraph::make_constant_from_string("0", get_element_type(), get_shape());
+    return ngraph::make_constant_from_string("0", get_output_element_type(0), get_output_shape(0));
 }

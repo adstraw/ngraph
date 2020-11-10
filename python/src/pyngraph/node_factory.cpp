@@ -32,7 +32,7 @@
 #include "ngraph/except.hpp"
 #include "ngraph/node.hpp"
 #include "ngraph/op/constant.hpp"
-#include "ngraph/opsets/opset.hpp"
+#include "ngraph/opset/opset.hpp"
 #include "ngraph/util.hpp"
 #include "node_factory.hpp"
 
@@ -46,20 +46,6 @@ namespace
         {
         }
 
-        virtual void on_attribute(const std::string& name, std::string& value) override
-        {
-            if (m_attributes.contains(name))
-            {
-                value = m_attributes[name.c_str()].cast<std::string>();
-            }
-        }
-        virtual void on_attribute(const std::string& name, bool& value) override
-        {
-            if (m_attributes.contains(name))
-            {
-                value = m_attributes[name.c_str()].cast<bool>();
-            }
-        }
         virtual void on_adapter(const std::string& name,
                                 ngraph::ValueAccessor<void>& adapter) override
         {
@@ -67,6 +53,14 @@ namespace
             {
                 NGRAPH_CHECK(
                     false, "No AttributeVisitor support for accessing attribute named: ", name);
+            }
+        }
+        virtual void on_adapter(const std::string& name,
+                                ngraph::ValueAccessor<bool>& adapter) override
+        {
+            if (m_attributes.contains(name))
+            {
+                adapter.set(m_attributes[name.c_str()].cast<bool>());
             }
         }
         virtual void on_adapter(const std::string& name,
@@ -273,7 +267,7 @@ namespace
 
             DictAttributeDeserializer visitor(attributes);
 
-            op_node->set_arguments(arguments);
+            op_node->set_arguments(as_output_vector(arguments));
             op_node->visit_attributes(visitor);
             op_node->constructor_validate_and_infer_types();
 
@@ -293,7 +287,6 @@ namespace
             static const std::map<std::string, OpsetFunction> s_opsets{
                 {"opset0", OpsetFunction(ngraph::get_opset0)},
                 {"opset1", OpsetFunction(ngraph::get_opset1)},
-                {"opset2", OpsetFunction(ngraph::get_opset2)},
                 {"opset3", OpsetFunction(ngraph::get_opset3)},
             };
 

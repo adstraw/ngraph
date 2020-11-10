@@ -35,9 +35,7 @@ extern "C" INTERPRETER_BACKEND_API void ngraph_register_interpreter_backend()
     });
 }
 
-runtime::interpreter::INTBackend::INTBackend()
-{
-}
+runtime::interpreter::INTBackend::INTBackend() {}
 
 runtime::interpreter::INTBackend::INTBackend(const vector<string>& unsupported_op_name_list)
     : m_unsupported_op_name_list{unsupported_op_name_list.begin(), unsupported_op_name_list.end()}
@@ -59,6 +57,13 @@ shared_ptr<runtime::Tensor> runtime::interpreter::INTBackend::create_tensor(
     const element::Type& type, const Shape& shape, void* memory_pointer)
 {
     return make_shared<runtime::HostTensor>(type, shape, memory_pointer);
+}
+
+shared_ptr<runtime::Tensor>
+    runtime::interpreter::INTBackend::create_dynamic_tensor(const element::Type& type,
+                                                            const PartialShape& shape)
+{
+    return make_shared<runtime::HostTensor>(type, shape);
 }
 
 shared_ptr<runtime::Executable>
@@ -102,17 +107,4 @@ std::shared_ptr<runtime::Executable> runtime::interpreter::INTBackend::load(istr
         }
     }
     return exec;
-}
-
-bool runtime::interpreter::INTBackend::set_config(const map<string, string>& config, string& error)
-{
-    bool rc = false;
-    auto it = config.find("test_echo");
-    error = "";
-    if (it != config.end())
-    {
-        error = it->second;
-        rc = true;
-    }
-    return rc;
 }

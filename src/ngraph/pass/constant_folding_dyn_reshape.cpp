@@ -25,20 +25,20 @@ using namespace std;
 using namespace ngraph;
 
 template <typename T, typename R>
-shared_ptr<op::Constant> fold_constant_dyn_reshape(shared_ptr<op::Constant> constant_data,
-                                                   R dyn_reshape)
+shared_ptr<op::v0::Constant> fold_constant_dyn_reshape(shared_ptr<op::v0::Constant> constant_data,
+                                                       R dyn_reshape)
 {
     // v1::Reshape and v0::DynReshape do not allow data transposes.
-    return make_shared<op::Constant>(dyn_reshape->get_element_type(),
-                                     dyn_reshape->get_shape(),
-                                     constant_data->get_data_ptr<T>());
+    return make_shared<op::v0::Constant>(dyn_reshape->get_output_element_type(0),
+                                         dyn_reshape->get_output_shape(0),
+                                         constant_data->get_data_ptr<T>());
 }
 
 template <typename R>
-std::shared_ptr<Node> do_fold(R dyn_reshape_match, shared_ptr<op::Constant> constant_data_match)
+std::shared_ptr<Node> do_fold(R dyn_reshape_match, shared_ptr<op::v0::Constant> constant_data_match)
 {
     std::shared_ptr<Node> replacement;
-    auto type = dyn_reshape_match->get_element_type();
+    auto type = dyn_reshape_match->get_output_element_type(0);
     switch (type)
     {
     case element::Type_t::undefined:
@@ -97,9 +97,9 @@ std::shared_ptr<Node> do_fold(R dyn_reshape_match, shared_ptr<op::Constant> cons
 void pass::ConstantFolding::construct_constant_dyn_reshape()
 {
     auto constant_data_label = make_shared<pattern::op::Label>(
-        element::f32, Shape{2, 4}, pattern::has_class<op::Constant>());
-    auto constant_shape_label =
-        make_shared<pattern::op::Label>(element::i64, Shape{1}, pattern::has_class<op::Constant>());
+        element::f32, Shape{2, 4}, pattern::has_class<op::v0::Constant>());
+    auto constant_shape_label = make_shared<pattern::op::Label>(
+        element::i64, Shape{1}, pattern::has_class<op::v0::Constant>());
     auto reshape_v1 =
         make_shared<op::v1::Reshape>(constant_data_label, constant_shape_label, false);
 
@@ -113,13 +113,13 @@ void pass::ConstantFolding::construct_constant_dyn_reshape()
         auto pattern_map = m.get_pattern_map();
 
         auto constant_data_match =
-            static_pointer_cast<op::Constant>(pattern_map[constant_data_label]);
+            static_pointer_cast<op::v0::Constant>(pattern_map[constant_data_label]);
         auto match_root = m.get_match_root();
         NGRAPH_CHECK(revalidate_and_ensure_static(match_root));
         shared_ptr<Node> replacement;
         replacement =
             do_fold(static_pointer_cast<op::v1::Reshape>(match_root), constant_data_match);
-        replace_node(m.get_match_root(), replacement);
+        m.get_match_value().replace(replacement->output(0));
         return true;
     };
 

@@ -42,12 +42,12 @@ NGRAPH_TEST(${BACKEND_NAME}, scatter_add_4d_indices)
     Shape indices_shape{2, 3, 4, 2};
     Shape updates_shape{2, 3, 4, 2, 3, 3};
     Shape out_shape{3, 3, 3};
-    auto R = make_shared<op::Parameter>(element::f32, ref_shape);
-    auto I = make_shared<op::Parameter>(element::i32, indices_shape);
-    auto U = make_shared<op::Parameter>(element::f32, updates_shape);
-    auto G = make_shared<op::ScatterAdd>(R, I, U);
+    auto R = make_shared<op::v0::Parameter>(element::f32, ref_shape);
+    auto I = make_shared<op::v0::Parameter>(element::i32, indices_shape);
+    auto U = make_shared<op::v0::Parameter>(element::f32, updates_shape);
+    auto G = make_shared<op::v0::ScatterAdd>(R, I, U);
     auto f =
-        make_shared<Function>(make_shared<op::GetOutputElement>(G, 0), ParameterVector{R, I, U});
+        make_shared<Function>(OutputVector{G->output(0)}, ParameterVector{R, I, U});
 
     auto backend = runtime::Backend::create("${BACKEND_NAME}");
 
@@ -96,12 +96,11 @@ NGRAPH_TEST(${BACKEND_NAME}, scatter_add_3d_indices)
     Shape indices_shape{2, 2, 2};
     Shape updates_shape{2, 2, 2, 3, 3};
     Shape out_shape{2, 3, 3};
-    auto R = make_shared<op::Parameter>(element::f32, ref_shape);
-    auto I = make_shared<op::Parameter>(element::i32, indices_shape);
-    auto U = make_shared<op::Parameter>(element::f32, updates_shape);
-    auto G = make_shared<op::ScatterAdd>(R, I, U);
-    auto f =
-        make_shared<Function>(make_shared<op::GetOutputElement>(G, 0), ParameterVector{R, I, U});
+    auto R = make_shared<op::v0::Parameter>(element::f32, ref_shape);
+    auto I = make_shared<op::v0::Parameter>(element::i32, indices_shape);
+    auto U = make_shared<op::v0::Parameter>(element::f32, updates_shape);
+    auto G = make_shared<op::v0::ScatterAdd>(R, I, U);
+    auto f = make_shared<Function>(OutputVector{G->output(0)}, ParameterVector{R, I, U});
 
     auto backend = runtime::Backend::create("${BACKEND_NAME}");
 
@@ -131,12 +130,11 @@ NGRAPH_TEST(${BACKEND_NAME}, scatter_add_2d_indices)
     Shape indices_shape{2, 2};
     Shape updates_shape{2, 2};
     Shape out_shape{3};
-    auto R = make_shared<op::Parameter>(element::f32, ref_shape);
-    auto I = make_shared<op::Parameter>(element::i32, indices_shape);
-    auto U = make_shared<op::Parameter>(element::f32, updates_shape);
-    auto G = make_shared<op::ScatterAdd>(R, I, U);
-    auto f =
-        make_shared<Function>(make_shared<op::GetOutputElement>(G, 0), ParameterVector{R, I, U});
+    auto R = make_shared<op::v0::Parameter>(element::f32, ref_shape);
+    auto I = make_shared<op::v0::Parameter>(element::i32, indices_shape);
+    auto U = make_shared<op::v0::Parameter>(element::f32, updates_shape);
+    auto G = make_shared<op::v0::ScatterAdd>(R, I, U);
+    auto f = make_shared<Function>(OutputVector{G->output(0)}, ParameterVector{R, I, U});
 
     auto backend = runtime::Backend::create("${BACKEND_NAME}");
 
@@ -161,12 +159,11 @@ NGRAPH_TEST(${BACKEND_NAME}, scatter_add_1d_indices)
     Shape indices_shape{2};
     Shape updates_shape{2, 3, 3};
     Shape out_shape{2, 3, 3};
-    auto R = make_shared<op::Parameter>(element::f32, ref_shape);
-    auto I = make_shared<op::Parameter>(element::i32, indices_shape);
-    auto U = make_shared<op::Parameter>(element::f32, updates_shape);
-    auto G = make_shared<op::ScatterAdd>(R, I, U);
-    auto f =
-        make_shared<Function>(make_shared<op::GetOutputElement>(G, 0), ParameterVector{R, I, U});
+    auto R = make_shared<op::v0::Parameter>(element::f32, ref_shape);
+    auto I = make_shared<op::v0::Parameter>(element::i32, indices_shape);
+    auto U = make_shared<op::v0::Parameter>(element::f32, updates_shape);
+    auto G = make_shared<op::v0::ScatterAdd>(R, I, U);
+    auto f = make_shared<Function>(OutputVector{G->output(0)}, ParameterVector{R, I, U});
 
     auto backend = runtime::Backend::create("${BACKEND_NAME}");
 
@@ -193,12 +190,11 @@ NGRAPH_TEST(${BACKEND_NAME}, scatter_add_scalar_indices)
     Shape indices_shape{};
     Shape updates_shape{3, 3};
     Shape out_shape{2, 3, 3};
-    auto R = make_shared<op::Parameter>(element::f32, ref_shape);
-    auto I = make_shared<op::Parameter>(element::i32, indices_shape);
-    auto U = make_shared<op::Parameter>(element::f32, updates_shape);
-    auto G = make_shared<op::ScatterAdd>(R, I, U);
-    auto f =
-        make_shared<Function>(make_shared<op::GetOutputElement>(G, 0), ParameterVector{R, I, U});
+    auto R = make_shared<op::v0::Parameter>(element::f32, ref_shape);
+    auto I = make_shared<op::v0::Parameter>(element::i32, indices_shape);
+    auto U = make_shared<op::v0::Parameter>(element::f32, updates_shape);
+    auto G = make_shared<op::v0::ScatterAdd>(R, I, U);
+    auto f = make_shared<Function>(OutputVector{G->output(0)}, ParameterVector{R, I, U});
 
     auto backend = runtime::Backend::create("${BACKEND_NAME}");
 
@@ -225,12 +221,11 @@ NGRAPH_TEST(${BACKEND_NAME}, scatter_nd_add_batch_2d_to_3d)
     Shape indices_shape{2, 1};
     Shape updates_shape{2, 3, 3};
     Shape out_shape{3, 3, 3};
-    auto R = make_shared<op::Parameter>(element::f32, ref_shape);
-    auto I = make_shared<op::Parameter>(element::i32, indices_shape);
-    auto U = make_shared<op::Parameter>(element::f32, updates_shape);
-    auto G = make_shared<op::ScatterNDAdd>(R, I, U);
-    auto f =
-        make_shared<Function>(make_shared<op::GetOutputElement>(G, 0), ParameterVector{R, I, U});
+    auto R = make_shared<op::v0::Parameter>(element::f32, ref_shape);
+    auto I = make_shared<op::v0::Parameter>(element::i32, indices_shape);
+    auto U = make_shared<op::v0::Parameter>(element::f32, updates_shape);
+    auto G = make_shared<op::v0::ScatterNDAdd>(R, I, U);
+    auto f = make_shared<Function>(OutputVector{G->output(0)}, ParameterVector{R, I, U});
 
     auto backend = runtime::Backend::create("${BACKEND_NAME}");
 
@@ -258,12 +253,11 @@ NGRAPH_TEST(${BACKEND_NAME}, scatter_nd_add_2d_to_3d)
     Shape indices_shape{1};
     Shape updates_shape{3, 3};
     Shape out_shape{3, 3, 3};
-    auto R = make_shared<op::Parameter>(element::f32, ref_shape);
-    auto I = make_shared<op::Parameter>(element::i32, indices_shape);
-    auto U = make_shared<op::Parameter>(element::f32, updates_shape);
-    auto G = make_shared<op::ScatterNDAdd>(R, I, U);
-    auto f =
-        make_shared<Function>(make_shared<op::GetOutputElement>(G, 0), ParameterVector{R, I, U});
+    auto R = make_shared<op::v0::Parameter>(element::f32, ref_shape);
+    auto I = make_shared<op::v0::Parameter>(element::i32, indices_shape);
+    auto U = make_shared<op::v0::Parameter>(element::f32, updates_shape);
+    auto G = make_shared<op::v0::ScatterNDAdd>(R, I, U);
+    auto f = make_shared<Function>(OutputVector{G->output(0)}, ParameterVector{R, I, U});
 
     auto backend = runtime::Backend::create("${BACKEND_NAME}");
 

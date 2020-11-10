@@ -20,7 +20,7 @@
     auto arg_buffer_index = external_function->get_buffer_index(args[0].get_name());               \
     auto out_buffer_index = external_function->get_buffer_index(out[0].get_name());                \
                                                                                                    \
-    auto op = static_cast<const ngraph::op::OP*>(node);                                            \
+    auto op = static_cast<const ngraph::op::v0::OP*>(node);                                        \
                                                                                                    \
     auto arg_shape = args[0].get_shape();                                                          \
     auto arg_rank = arg_shape.size();                                                              \
@@ -47,7 +47,7 @@
         SELECT_ETS_AND_RANK7(                                                                      \
             kernel, result_element_type, arg_rank, runtime::cpu::kernel::reduce_##K##_all);        \
         auto functor = [&, kernel, arg_shape, result_shape, arg_buffer_index, out_buffer_index](   \
-            CPURuntimeContext* ctx, CPUExecutionContext* ectx) {                                   \
+                           CPURuntimeContext* ctx, CPUExecutionContext* ectx) {                    \
             kernel(ctx->buffer_data[arg_buffer_index],                                             \
                    ctx->buffer_data[out_buffer_index],                                             \
                    arg_shape,                                                                      \

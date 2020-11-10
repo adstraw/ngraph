@@ -18,8 +18,8 @@
 #include "gtest/gtest.h"
 
 #include "ngraph/ngraph.hpp"
+#include "ngraph/pass/convert_opset_0_to_1.hpp"
 #include "ngraph/pass/manager.hpp"
-#include "ngraph/pass/opset1_upgrade.hpp"
 #include "util/type_prop.hpp"
 
 using namespace std;
@@ -29,13 +29,13 @@ TEST(opset_transform, opset1_softmax_upgrade_pass_axis)
 {
     const size_t axis = 2;
     const AxisSet axes{axis};
-    auto arg = make_shared<op::Parameter>(element::f32, Shape{2, 3, 4});
+    auto arg = make_shared<op::v0::Parameter>(element::f32, Shape{2, 3, 4});
     auto softmax_s0 = make_shared<op::v0::Softmax>(arg, axes);
-    auto result = make_shared<op::Result>(softmax_s0);
+    auto result = make_shared<op::v0::Result>(softmax_s0);
     auto f = make_shared<Function>(ResultVector{result}, ParameterVector{arg});
 
     ngraph::pass::Manager pass_manager;
-    pass_manager.register_pass<pass::Opset1Upgrade>();
+    pass_manager.register_pass<pass::ConvertOpset0To1>();
     pass_manager.run_passes(f);
 
     auto softmax_s1_result = f->get_results().at(0);
@@ -48,18 +48,18 @@ TEST(opset_transform, opset1_softmax_upgrade_pass_axis)
 TEST(opset_transform, opset1_softmax_upgrade_pass_axis_exception)
 {
     const AxisSet axes{1, 2};
-    auto arg = make_shared<op::Parameter>(element::f32, Shape{2, 3, 4});
+    auto arg = make_shared<op::v0::Parameter>(element::f32, Shape{2, 3, 4});
     auto softmax_s0 = make_shared<op::v0::Softmax>(arg, axes);
-    auto result = make_shared<op::Result>(softmax_s0);
+    auto result = make_shared<op::v0::Result>(softmax_s0);
     auto f = make_shared<Function>(ResultVector{result}, ParameterVector{arg});
 
     ngraph::pass::Manager pass_manager;
-    pass_manager.register_pass<pass::Opset1Upgrade>();
+    pass_manager.register_pass<pass::ConvertOpset0To1>();
 
     try
     {
         pass_manager.run_passes(f);
-        FAIL() << "Exception after Opset1Upgrade pass was not thrown.";
+        FAIL() << "Exception after ConvertOpset0To1 pass was not thrown.";
     }
     catch (const ngraph_error& error)
     {

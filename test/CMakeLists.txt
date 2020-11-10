@@ -17,8 +17,7 @@
 add_definitions("-DSERIALIZED_ZOO=\"${CMAKE_CURRENT_SOURCE_DIR}/models\"")
 set(NGRAPH_ONNX_NAMESPACE ngraph_onnx)
 
-set(ONNX_LIBRARIES onnx onnx_proto)
-
+set(ONNX_LIBRARIES onnx)
 
 if(NOT NGRAPH_UNIT_TEST_ENABLE)
     message(STATUS "unit tests disabled")
@@ -28,7 +27,7 @@ endif()
 
 message(STATUS "unit tests enabled")
 
-if (NGRAPH_MLIR_ENABLE)
+if (NGRAPH_MLIR_ENABLE OR NGRAPH_CPU_MLIR_ENABLE)
     add_subdirectory(mlir)
     message(STATUS "MLIR LIT tests enabled")
 endif()
@@ -61,6 +60,7 @@ set(SRC
     convert_u1_to_string.cpp
     coordinate.cpp
     copy.cpp
+    core_fusion.cpp
     cpio.cpp
     cse.cpp
     dyn_elimination.cpp
@@ -78,17 +78,13 @@ set(SRC
     nop_elimination.cpp
     op.cpp
     op_eval/matmul.cpp
+    op_eval/mod.cpp
     op_eval/non_zero.cpp
     op_eval/strided_slice.cpp
     op_is.cpp
     opset1.cpp
-    opset_pass/binary_elementwise_opset_pass.cpp
     opset_pass/broadcast_opset_pass.cpp
     opset_pass/convolution_opset_pass.cpp
-    opset_pass/logical_and_opset_pass.cpp
-    opset_pass/logical_not_opset_pass.cpp
-    opset_pass/logical_or_opset_pass.cpp
-    opset_pass/logical_xor_opset_pass.cpp
     opset_pass/one_hot_opset_pass.cpp
     opset_pass/gather_opset_pass.cpp
     opset_pass/generate_mask_opset_pass.cpp
@@ -111,10 +107,12 @@ set(SRC
     provenance.cpp
     replace_node.cpp
     reshape_elimination.cpp
+    reshape_elimination_v1.cpp
     reshape_sinking.cpp
     shape.cpp
     specialize_function.cpp
     tensor.cpp
+    type_info.cpp
     type_prop/all.cpp
     type_prop/any.cpp
     type_prop/avg_pool.cpp
@@ -154,7 +152,6 @@ set(SRC
     type_prop/gather_nd.cpp
     type_prop/gather_tree.cpp
     type_prop/gemm.cpp
-    type_prop/get_output_element.cpp
     type_prop/grn.cpp
     type_prop/group_convolution.cpp
     type_prop/group_convolution_backprop_data.cpp
@@ -227,7 +224,7 @@ endif()
 # has just a single #include statement. This checks that each header in the source tree is
 # complete and self-contained so it can be included without requiring any other includes.
 set(DIRECTORIES_IGNORED runtime frontend)
-set(NGRAPH_MAIN_SRC_DIR "${CMAKE_SOURCE_DIR}/src/ngraph")
+set(NGRAPH_MAIN_SRC_DIR "${PROJECT_SOURCE_DIR}/src/ngraph")
 file(GLOB_RECURSE LIST_RECURSE
     "${NGRAPH_MAIN_SRC_DIR}/autodiff/*.hpp"
     "${NGRAPH_MAIN_SRC_DIR}/builder/*.hpp"
@@ -261,18 +258,6 @@ endif()
 set_source_files_properties(includes.cpp PROPERTIES COMPILE_DEFINITIONS
     NGRAPH_INCLUDES="${PROJECT_SOURCE_DIR}/src/ngraph")
 
-# if (NGRAPH_IE_ENABLE)
-#     if (ENABLE_MKL_DNN)
-#         message(STATUS "NGRAPH_TESTS: IE:CPU enabled")
-#         set(ACTIVE_BACKEND_LIST ${ACTIVE_BACKEND_LIST} "IE:CPU")
-#     endif()
-
-#     if (ENABLE_CLDNN)
-#         message(STATUS "NGRAPH_TESTS: IE:GPU enabled")
-#         set(ACTIVE_BACKEND_LIST ${ACTIVE_BACKEND_LIST} "IE:GPU")
-#     endif()
-# endif()
-
 if (NGRAPH_INTERPRETER_ENABLE)
     list(APPEND SRC
         backend_debug_api.cpp
@@ -282,12 +267,21 @@ if (NGRAPH_INTERPRETER_ENABLE)
 endif()
 
 if (NGRAPH_CPU_ENABLE)
-    list(APPEND SRC core_fusion.cpp builder_quantization.cpp)
-    list(APPEND SRC backend_performance.cpp cpu_fusion.cpp cpu_test.cpp cpu_debugger.cpp cpu_debug_tracer.cpp)
-    if (NOT NGRAPH_DEX_ONLY)
+    list(APPEND SRC builder_quantization.cpp)
+    list(APPEND SRC backend_performance.cpp)
+    if (NGRAPH_CPU_CODEGEN_ENABLE)
         list(APPEND SRC cpu_codegen.cpp)
+        set(ACTIVE_CPU_BACKEND_LIST ${ACTIVE_CPU_BACKEND_LIST} "CPU:CODEGEN")
     endif()
-    set(ACTIVE_BACKEND_LIST ${ACTIVE_BACKEND_LIST} CPU)
+    if (NGRAPH_CPU_MLIR_ENABLE)
+        set(ACTIVE_CPU_BACKEND_LIST ${ACTIVE_CPU_BACKEND_LIST} "CPU:MLIR")
+    endif()
+    set(ACTIVE_CPU_BACKEND_LIST ${ACTIVE_CPU_BACKEND_LIST} CPU)
+    set(ACTIVE_BACKEND_LIST ${ACTIVE_BACKEND_LIST} ${ACTIVE_CPU_BACKEND_LIST})
+endif()
+
+if (NGRAPH_MLIR_ENABLE)
+    set(ACTIVE_BACKEND_LIST ${ACTIVE_BACKEND_LIST} "MLIR")
 endif()
 
 if(NGRAPH_GPU_ENABLE)
@@ -297,6 +291,10 @@ endif()
 
 if (NGRAPH_GENERIC_CPU_ENABLE)
     set(ACTIVE_BACKEND_LIST ${ACTIVE_BACKEND_LIST} GCPU)
+endif()
+
+if(NGRAPH_EVAL_ENABLE)
+    set(ACTIVE_BACKEND_LIST ${ACTIVE_BACKEND_LIST} EVAL)
 endif()
 
 add_definitions("-DTEST_FILES=\"${CMAKE_CURRENT_SOURCE_DIR}/files\"")
@@ -314,19 +312,19 @@ add_subdirectory(util)
 set(MULTI_TEST_SRC
     backend/abc.in.cpp
     backend/abs.in.cpp
-    backend/acos.in.cpp
     backend/acosh.in.cpp
+    backend/acos.in.cpp
     backend/add.in.cpp
     backend/aliased_output.in.cpp
     backend/all.in.cpp
     backend/any.in.cpp
     backend/api.in.cpp
     backend/arg_reduce.in.cpp
-    backend/asin.in.cpp
     backend/asinh.in.cpp
-    backend/atan.in.cpp
+    backend/asin.in.cpp
     backend/atan2.in.cpp
     backend/atanh.in.cpp
+    backend/atan.in.cpp
     backend/auto_broadcast.in.cpp
     backend/autodiff.in.cpp
     backend/batch_mat_mul.in.cpp
@@ -335,52 +333,66 @@ set(MULTI_TEST_SRC
     backend/builder_flatten.in.cpp
     backend/builder_reduce_ops_opset1.in.cpp
     backend/ceiling.in.cpp
+    backend/clamp.in.cpp
     backend/comparison.in.cpp
     backend/computation_reuse.in.cpp
     backend/concat.in.cpp
     backend/constant.in.cpp
+    backend/conv_bias.in.cpp
     backend/convert.in.cpp
-    backend/convolution_reference.in.cpp
     backend/convolution.in.cpp
-    backend/cos.in.cpp
+    backend/convolution_reference.in.cpp
     backend/cosh.in.cpp
+    backend/cos.in.cpp
+    backend/cross_entropy.in.cpp
     backend/cum_sum.in.cpp
     backend/divide.in.cpp
     backend/dot.in.cpp
+    backend/dynamic.in.cpp
     backend/dyn_broadcast.in.cpp
     backend/dyn_replace_slice_reference.in.cpp
     backend/dyn_reshape.in.cpp
     backend/dyn_slice_reference.in.cpp
-    backend/strided_slice.in.cpp
-    backend/dynamic.in.cpp
+    backend/elu.in.cpp
     backend/embedding_lookup.in.cpp
     backend/erf.in.cpp
     backend/exp.in.cpp
+    backend/fake_quantize.in.cpp
     backend/floor.in.cpp
     backend/function_name.in.cpp
-    backend/fused_op.in.cpp
     backend/gather.in.cpp
     backend/gelu.in.cpp
+    backend/gemm.in.cpp
     backend/generate_mask.in.cpp
+    backend/graph_comparison.in.cpp
+    backend/grn.in.cpp
+    backend/group_conv.in.cpp
     backend/group_convolution.in.cpp
+    backend/gru_cell.in.cpp
+    backend/hard_sigmoid.in.cpp
     backend/layer_norm.in.cpp
-    backend/log.in.cpp
     backend/logical_and.in.cpp
     backend/logical_or.in.cpp
     backend/logical_xor.in.cpp
+    backend/log.in.cpp
     backend/lrn.in.cpp
+    backend/lstm_cell.in.cpp
     backend/matmul.in.cpp
-    backend/max.in.cpp
     backend/maximum.in.cpp
-    backend/min.in.cpp
+    backend/max.in.cpp
     backend/minimum.in.cpp
+    backend/min.in.cpp
+    backend/mlir.in.cpp
+    backend/mod.in.cpp
     backend/multiple_backends.in.cpp
     backend/multiple_result.in.cpp
     backend/multiply.in.cpp
+    backend/mvn.in.cpp
     backend/negative.in.cpp
     backend/node_name.in.cpp
-    backend/not.in.cpp
     backend/non_zero.in.cpp
+    backend/normalize.in.cpp
+    backend/not.in.cpp
     backend/numeric.in.cpp
     backend/one_hot.in.cpp
     backend/pad.in.cpp
@@ -388,10 +400,11 @@ set(MULTI_TEST_SRC
     backend/partial_slice.in.cpp
     backend/pool.in.cpp
     backend/power.in.cpp
+    backend/prelu.in.cpp
     backend/product.in.cpp
-    backend/quantize_dequantize.in.cpp
     backend/quantized_convolution.in.cpp
     backend/quantized_dot.in.cpp
+    backend/quantize_dequantize.in.cpp
     backend/random_uniform.in.cpp
     backend/range.in.cpp
     backend/reduce_max.in.cpp
@@ -402,38 +415,47 @@ set(MULTI_TEST_SRC
     backend/relu.in.cpp
     backend/replace_slice.in.cpp
     backend/reshape.in.cpp
-    backend/reverse_sequence.in.cpp
     backend/reverse.in.cpp
+    backend/reverse_sequence.in.cpp
+    backend/rnn_cell.in.cpp
     backend/round.in.cpp
+    backend/scale.in.cpp
     backend/scatter.in.cpp
     backend/select.in.cpp
     backend/shape_of.in.cpp
+    backend/shuffle_channels.in.cpp
     backend/sigmoid.in.cpp
     backend/sign.in.cpp
-    backend/sin.in.cpp
     backend/sinh.in.cpp
+    backend/sin.in.cpp
     backend/slice.in.cpp
     backend/softmax.in.cpp
+    backend/split.in.cpp
     backend/sqrt.in.cpp
+    backend/squared_difference.in.cpp
+    backend/squeeze.in.cpp
+    backend/stack.in.cpp
+    backend/strided_slice.in.cpp
     backend/subtract.in.cpp
     backend/sum.in.cpp
-    backend/tan.in.cpp
     backend/tanh.in.cpp
+    backend/tan.in.cpp
     backend/tile.in.cpp
     backend/topk.in.cpp
     backend/transpose.in.cpp
     backend/unhandled_op.in.cpp
+    backend/unsqueeze.in.cpp
     backend/validate_call.in.cpp
     backend/zero_sized.in.cpp
 )
 
-if (NGRAPH_MLIR_ENABLE)
+if (NGRAPH_MLIR_ENABLE OR NGRAPH_CPU_MLIR_ENABLE)
     list(APPEND MULTI_TEST_SRC backend/mlir.in.cpp)
     list(APPEND SRC mlir/ops_test.cpp)
 endif()
 
-if (NGRAPH_CPU_ENABLE)
-    list(APPEND MULTI_TEST_SRC backend/graph_comparison.in.cpp)
+if(NGRAPH_UNIT_TEST_NUMPY_ENABLE)
+    list(APPEND MULTI_TEST_SRC backend/numpy.in.cpp)
 endif()
 
 if (NGRAPH_ONNX_IMPORT_ENABLE)
@@ -478,6 +500,25 @@ foreach(BACKEND_NAME ${ACTIVE_BACKEND_LIST})
 
     message(STATUS "Adding unit test for backend ${BACKEND_NAME}")
 endforeach()
+# These configured tests are for the CPU backend and its variants
+set(CPU_MULTI_SRC
+    cpu_fusion.in.cpp
+    cpu_core_fusion.in.cpp
+    cpu_debugger.in.cpp
+    cpu_test.in.cpp
+)
+foreach(BACKEND_NAME ${ACTIVE_CPU_BACKEND_LIST})
+    string(TOLOWER ${BACKEND_NAME} BACKEND_DIR)
+    string(REGEX REPLACE ":.*" "" BACKEND_DIR ${BACKEND_DIR})
+    set(MANIFEST ${PROJECT_SOURCE_DIR}/src/ngraph/runtime/${BACKEND_DIR}/unit_test.manifest)
+    string(REGEX REPLACE "([a-z0-9]+):(.*)" "\\1" BACKEND_DIR ${BACKEND_DIR})
+    foreach(TEST_SRC ${CPU_MULTI_SRC})
+        string(REPLACE ":" "_" BACKEND_NAME ${BACKEND_NAME})
+        string(REPLACE ".in." "_${BACKEND_NAME}." TARGET_NAME ${TEST_SRC})
+        configure_file(${TEST_SRC} ${TARGET_NAME})
+        set(SRC ${CMAKE_CURRENT_BINARY_DIR}/${TARGET_NAME} ${SRC})
+    endforeach()
+endforeach()
 
 add_executable(unit-test ${SRC})
 
@@ -493,22 +534,27 @@ endif()
 target_link_libraries(unit-test PRIVATE ngraph_test_util)
 target_link_libraries(unit-test PRIVATE ngraph libgtest)
 
+if(NGRAPH_UNIT_TEST_NUMPY_ENABLE)
+    target_link_libraries(unit-test PRIVATE ngraph pybind11::embed)
+    target_compile_definitions(unit-test PRIVATE NGRAPH_UNIT_TEST_NUMPY_ENABLE)
+endif()
+
 if (NGRAPH_ONNX_IMPORT_ENABLE)
     target_include_directories(unit-test
         SYSTEM PRIVATE ${ONNX_INCLUDE_DIR} ${ONNX_PROTO_INCLUDE_DIR} ${Protobuf_INCLUDE_DIR})
-    target_link_libraries(unit-test PRIVATE ${Protobuf_LIBRARIES} ${ONNX_LIBRARIES})
+    target_link_libraries(unit-test PRIVATE ${ONNX_LIBRARIES})
 endif()
 
 target_compile_definitions(unit-test PRIVATE NGRAPH_VERSION_LABEL="${NGRAPH_VERSION_LABEL}")
 if (NGRAPH_JSON_ENABLE)
-    target_link_libraries(unit-test PRIVATE libjson)
+    target_link_libraries(unit-test PRIVATE nlohmann_json::nlohmann_json)
 endif()
 if(NOT WIN32)
     target_link_libraries(unit-test PRIVATE pthread)
 endif()
 target_link_libraries(unit-test PRIVATE ${CMAKE_DL_LIBS})
 
-if ("${CMAKE_CXX_COMPILER_ID}" MATCHES "^(Apple)?Clang$")
+if ("${CMAKE_CXX_COMPILER_ID}" MATCHES "^(AppleClang)?Clang$")
     target_compile_options(unit-test PRIVATE -Wno-undef -Wno-reserved-id-macro)
 endif()
 
@@ -525,8 +571,8 @@ endif()
 if (NGRAPH_CPU_ENABLE)
     # The INTERPRETER backend is required for convolution, and backwards unit tests
     target_link_libraries(unit-test PRIVATE cpu_backend interpreter_backend)
-    target_link_libraries(unit-test PRIVATE libmkldnn)
-    target_compile_definitions(unit-test PRIVATE NGRAPH_CPU_ENABLE)
+    target_link_libraries(unit-test PRIVATE DNNL::dnnl)
+    set_property(SOURCE backend_api.cpp APPEND PROPERTY COMPILE_DEFINITIONS NGRAPH_CPU_ENABLE)
 endif()
 
 if (NGRAPH_TOOLS_ENABLE)
@@ -534,10 +580,6 @@ if (NGRAPH_TOOLS_ENABLE)
     set(NBENCH "${NBENCH_PATH}/nbench")
     target_compile_definitions(unit-test PRIVATE NBENCH_PATH="${NBENCH}")
     add_dependencies(unit-test nbench)
-endif()
-
-if (NGRAPH_IE_ENABLE)
-    target_link_libraries(unit-test PRIVATE ie_backend)
 endif()
 
 if (NGRAPH_TBB_ENABLE)
@@ -553,6 +595,11 @@ if (NGRAPH_GENERIC_CPU_ENABLE)
     target_link_libraries(unit-test PRIVATE gcpu_backend)
 endif()
 
+if (NGRAPH_EVAL_ENABLE)
+    target_compile_definitions(unit-test PRIVATE NGRAPH_EVAL_ENABLE)
+    target_link_libraries(unit-test PRIVATE eval_backend)
+endif()
+
 if (NGRAPH_GPU_ENABLE)
     target_link_libraries(unit-test PRIVATE gpu_backend)
 endif()
@@ -561,28 +608,28 @@ if (NGRAPH_NOP_ENABLE)
     target_link_libraries(unit-test PRIVATE nop_backend)
 endif()
 
-if (NGRAPH_MLIR_ENABLE)
+if (NGRAPH_MLIR_ENABLE OR NGRAPH_CPU_MLIR_ENABLE)
+    target_link_libraries(unit-test PRIVATE mlir_backend)
     target_include_directories(unit-test PRIVATE ${CMAKE_BINARY_DIR}/src/contrib/mlir)
+    target_compile_definitions(unit-test PRIVATE NGRAPH_MLIR_ENABLE)
 endif()
 
-if (NOT NGRAPH_IE_ENABLE)
-    # If all the runtime libraries are installed into one location, that will make life easier.
-    if (MSVC)
-        add_custom_target(unit-test-check
-            COMMAND set "PATH=${EXTERNAL_PROJECTS_ROOT}/src/ngraph/Release;${EXTERNAL_PROJECTS_ROOT}/mkldnn/lib/;${EXTERNAL_PROJECTS_ROOT}/mkl/src/ext_mkl/lib/;${EXTERNAL_PROJECTS_ROOT}/ext_tbb-prefix/src/ext_tbb/tbb2019_20181203oss/bin/intel64/vc14;%PATH%"
-            COMMAND ${PROJECT_BINARY_DIR}/test/unit-test \${ARGS}
-            DEPENDS unit-test
-        )
-    else()
-        add_custom_target(unit-test-check
-            COMMAND ${PROJECT_BINARY_DIR}/test/unit-test --cpath ${EXTERNAL_PROJECTS_ROOT}/src/ngraph/ \${ARGS}
-            DEPENDS unit-test
-        )
-    endif()
-
-    add_custom_target(check
-        DEPENDS
-        style-check
-        unit-test-check
+# If all the runtime libraries are installed into one location, that will make life easier.
+if (MSVC)
+    add_custom_target(unit-test-check
+        COMMAND set "PATH=${EXTERNAL_PROJECTS_ROOT}/src/ngraph/Release;${EXTERNAL_PROJECTS_ROOT}/dnnl/lib/;${EXTERNAL_PROJECTS_ROOT}/mkl/src/ext_mkl/lib/;${EXTERNAL_PROJECTS_ROOT}/ext_tbb-prefix/src/ext_tbb/tbb2019_20181203oss/bin/intel64/vc14;%PATH%"
+        COMMAND ${PROJECT_BINARY_DIR}/test/unit-test \${ARGS}
+        DEPENDS unit-test
+    )
+else()
+    add_custom_target(unit-test-check
+        COMMAND ${PROJECT_BINARY_DIR}/test/unit-test --cpath ${EXTERNAL_PROJECTS_ROOT}/src/ngraph/ \${ARGS}
+        DEPENDS unit-test
     )
 endif()
+
+add_custom_target(ngraph-check
+    DEPENDS
+    style-check
+    unit-test-check
+)

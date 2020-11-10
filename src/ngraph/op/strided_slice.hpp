@@ -102,17 +102,16 @@ namespace ngraph
                 std::shared_ptr<Node>
                     clone_with_new_inputs(const OutputVector& new_args) const override;
                 void validate_and_infer_types() override;
-                size_t get_version() const override { return 1; }
-                bool evaluate(const HostTensorVector& output_values,
-                              const HostTensorVector& input_values) override;
+                bool evaluate(const HostTensorVector& outputs,
+                              const HostTensorVector& inputs) const override;
+
+                AxisSet convert_mask_to_axis_set(const std::vector<int64_t>& mask) const;
 
             protected:
                 void generate_adjoints(autodiff::Adjoints& adjoints,
                                        const OutputVector& deltas) override;
 
             private:
-                AxisSet convert_mask_to_axis_set(const std::vector<int64_t>& mask) const;
-
                 std::vector<int64_t> m_begin_mask;
                 std::vector<int64_t> m_end_mask;
                 std::vector<int64_t> m_new_axis_mask;

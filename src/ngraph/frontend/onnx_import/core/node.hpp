@@ -44,10 +44,8 @@ namespace ngraph
                     {
                     }
                 };
-
-            } // namespace node
-
-        } // namespace error
+            }
+        }
 
         // forward declaration
         class Graph;
@@ -64,8 +62,8 @@ namespace ngraph
             Node& operator=(Node&&) noexcept = delete;
             Node& operator=(const Node&) = delete;
 
-            NodeVector get_ng_inputs() const;
-            NodeVector get_ng_nodes() const;
+            OutputVector get_ng_inputs() const;
+            OutputVector get_ng_nodes() const;
             const std::string& domain() const;
             const std::string& op_type() const;
             const std::string& get_name() const;
@@ -100,7 +98,5 @@ namespace ngraph
         {
             return (outs << "<Node(" << node.op_type() << "): " << node.get_description() << ">");
         }
-
-    } // namespace onnx_import
-
-} // namespace ngraph
+    }
+}

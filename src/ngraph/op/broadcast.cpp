@@ -22,7 +22,7 @@
 
 #include <numeric>
 #include "ngraph/runtime/host_tensor.hpp"
-#include "ngraph/runtime/reference/broadcast.hpp"
+#include "ngraph/runtime/opt_kernel/broadcast.hpp"
 
 using namespace std;
 using namespace ngraph;
@@ -89,7 +89,7 @@ std::pair<bool, AxisSet> op::v3::Broadcast::get_broadcast_axes() const
 namespace
 {
     PartialShape
-        get_result_shape_bidirectional(Node* this_ptr, Shape& arg_shape, Shape& target_shape)
+        get_result_shape_bidirectional(const Node* this_ptr, Shape& arg_shape, Shape& target_shape)
     {
         PartialShape result_shape;
         // Add left padding to shorter target or argument shape
@@ -182,11 +182,13 @@ shared_ptr<Node> op::v3::Broadcast::clone_with_new_inputs(const OutputVector& ne
 
 bool op::v3::Broadcast::visit_attributes(AttributeVisitor& visitor)
 {
+    BroadcastBase::visit_attributes(visitor);
     visitor.on_attribute("broadcast_spec", m_mode);
     return true;
 }
 
-bool op::v3::Broadcast::evaluate(const HostTensorVector& outputs, const HostTensorVector& inputs)
+bool op::v3::Broadcast::evaluate(const HostTensorVector& outputs,
+                                 const HostTensorVector& inputs) const
 {
     if (get_broadcast_spec().m_type == op::BroadcastType::BIDIRECTIONAL)
     {
@@ -260,11 +262,13 @@ shared_ptr<Node> op::v1::Broadcast::clone_with_new_inputs(const OutputVector& ne
 
 bool op::v1::Broadcast::visit_attributes(AttributeVisitor& visitor)
 {
+    BroadcastBase::visit_attributes(visitor);
     visitor.on_attribute("broadcast_spec", m_broadcast_spec);
     return true;
 }
 
-bool op::v1::Broadcast::evaluate(const HostTensorVector& outputs, const HostTensorVector& inputs)
+bool op::v1::Broadcast::evaluate(const HostTensorVector& outputs,
+                                 const HostTensorVector& inputs) const
 {
     return op::util::BroadcastBase::evaluate(outputs, inputs);
 }
@@ -350,7 +354,7 @@ void op::v0::Broadcast::generate_adjoints(autodiff::Adjoints& adjoints, const Ou
 
     auto x = input_value(0);
 
-    adjoints.add_delta(x, make_shared<op::Sum>(delta, m_broadcast_axes));
+    adjoints.add_delta(x, make_shared<op::v0::Sum>(delta, m_broadcast_axes));
 }
 
 namespace
@@ -364,11 +368,11 @@ namespace
                             const AxisSet& broadcast_axes)
     {
         using T = typename element_type_traits<ET>::value_type;
-        runtime::reference::broadcast<T>((arg0->get_data_ptr<ET>()),
-                                         (out->get_data_ptr<ET>()),
-                                         arg0->get_shape(),
-                                         out->get_shape(),
-                                         broadcast_axes);
+        runtime::opt_kernel::broadcast<T>((arg0->get_data_ptr<ET>()),
+                                          (out->get_data_ptr<ET>()),
+                                          arg0->get_shape(),
+                                          out->get_shape(),
+                                          broadcast_axes);
         return true;
     }
 
@@ -415,7 +419,8 @@ namespace
     }
 }
 
-bool op::v0::Broadcast::evaluate(const HostTensorVector& outputs, const HostTensorVector& inputs)
+bool op::v0::Broadcast::evaluate(const HostTensorVector& outputs,
+                                 const HostTensorVector& inputs) const
 {
     return evaluate_broadcast_v0(inputs[0], outputs[0], get_broadcast_axes(), get_output_shape(0));
 }

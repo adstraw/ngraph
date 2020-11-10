@@ -91,6 +91,7 @@ namespace ngraph
 
                 virtual std::shared_ptr<Node>
                     clone_with_new_inputs(const OutputVector& new_args) const override;
+                bool visit_attributes(AttributeVisitor& visitor) override;
 
                 /// \return The order in which to iterate over input axes.
                 const AxisVector& get_input_order() const { return m_input_order; }
@@ -101,7 +102,7 @@ namespace ngraph
                 bool get_is_transpose() const { return m_is_transpose; }
                 void set_is_transpose(bool is_transpose) { m_is_transpose = is_transpose; }
                 bool evaluate(const HostTensorVector& outputs,
-                              const HostTensorVector& inputs) override;
+                              const HostTensorVector& inputs) const override;
 
             protected:
                 virtual void generate_adjoints(autodiff::Adjoints& adjoints,
@@ -144,14 +145,13 @@ namespace ngraph
                 bool visit_attributes(AttributeVisitor& visitor) override;
                 void validate_and_infer_types() override;
 
-                size_t get_version() const override { return 1; }
                 virtual std::shared_ptr<Node>
                     clone_with_new_inputs(const OutputVector& new_args) const override;
 
                 bool get_special_zero() const { return m_special_zero; }
                 void set_special_zero(bool special_zero) { m_special_zero = special_zero; }
                 bool evaluate(const HostTensorVector& outputs,
-                              const HostTensorVector& inputs) override;
+                              const HostTensorVector& inputs) const override;
 
             protected:
                 virtual void generate_adjoints(autodiff::Adjoints& adjoints,
@@ -161,6 +161,5 @@ namespace ngraph
                 bool m_special_zero;
             };
         }
-        using v0::Reshape;
     }
 }

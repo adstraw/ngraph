@@ -19,10 +19,10 @@
 #include "ngraph/evaluator.hpp"
 #include "ngraph/op/concat.hpp"
 #include "ngraph/op/convert.hpp"
-#include "ngraph/op/fused/squeeze.hpp"
-#include "ngraph/op/fused/unsqueeze.hpp"
 #include "ngraph/op/min.hpp"
 #include "ngraph/op/minimum.hpp"
+#include "ngraph/op/squeeze.hpp"
+#include "ngraph/op/unsqueeze.hpp"
 #include "ngraph/runtime/host_tensor.hpp"
 #include "ngraph/shape.hpp"
 #include "ngraph/type/element_type_traits.hpp"
@@ -955,7 +955,7 @@ namespace
     vector<MaxValue> exec_constant(Node* node, vector<MaxValue>& inputs)
     {
         auto result = MaxValue();
-        auto op = as_type<op::Constant>(node);
+        auto op = as_type<op::v0::Constant>(node);
         auto element_type = op->get_output_element_type(0);
         if (element_type.is_integral())
         {
@@ -1052,7 +1052,7 @@ pair<bool, uint64_t> ngraph::maximum_value(const Output<Node>& value)
         {op::v0::Concat::type_info, exec_concat},
         {op::v0::Constant::type_info, exec_constant},
         {op::v0::Convert::type_info, exec_nop},
-        {op::v0::Minimum::type_info, exec_minimum},
+        {op::v1::Minimum::type_info, exec_minimum},
         {op::v1::Minimum::type_info, exec_minimum},
         {op::v1::ReduceMin::type_info, exec_reduce_min},
         {op::v0::Squeeze::type_info, exec_nop},

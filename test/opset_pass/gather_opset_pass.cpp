@@ -18,8 +18,8 @@
 #include "gtest/gtest.h"
 
 #include "ngraph/ngraph.hpp"
+#include "ngraph/pass/convert_opset_0_to_1.hpp"
 #include "ngraph/pass/manager.hpp"
-#include "ngraph/pass/opset1_upgrade.hpp"
 #include "util/type_prop.hpp"
 
 using namespace std;
@@ -27,16 +27,16 @@ using namespace ngraph;
 
 TEST(opset_transform, opset1_gather_upgrade_pass)
 {
-    auto params = make_shared<op::Parameter>(element::f32, Shape{5, 6});
-    auto indices = make_shared<op::Parameter>(element::i64, Shape{4});
+    auto params = make_shared<op::v0::Parameter>(element::f32, Shape{5, 6});
+    auto indices = make_shared<op::v0::Parameter>(element::i64, Shape{4});
     size_t axis = 1;
 
     auto gather_v0 = make_shared<op::v0::Gather>(params, indices, axis);
-    auto result = make_shared<op::Result>(gather_v0);
+    auto result = make_shared<op::v0::Result>(gather_v0);
     auto f = make_shared<Function>(ResultVector{result}, ParameterVector{params, indices});
 
     ngraph::pass::Manager pass_manager;
-    pass_manager.register_pass<pass::Opset1Upgrade>();
+    pass_manager.register_pass<pass::ConvertOpset0To1>();
     pass_manager.run_passes(f);
 
     auto gather_s1_result = f->get_results().at(0);

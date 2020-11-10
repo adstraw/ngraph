@@ -36,7 +36,7 @@ op::v1::ReduceSum::ReduceSum(const Output<Node>& arg,
 
 shared_ptr<Node> op::v1::ReduceSum::get_default_value() const
 {
-    return ngraph::make_constant_from_string("0", get_element_type(), get_shape());
+    return ngraph::make_constant_from_string("0", get_output_element_type(0), get_output_shape(0));
 }
 
 shared_ptr<Node> op::v1::ReduceSum::clone_with_new_inputs(const OutputVector& new_args) const
@@ -52,7 +52,7 @@ void op::v1::ReduceSum::generate_adjoints(autodiff::Adjoints& adjoints, const Ou
     auto x = input_value(0);
     auto& x_shape = x.get_shape();
 
-    adjoints.add_delta(x, make_shared<op::Broadcast>(delta, x_shape, get_reduction_axes()));
+    adjoints.add_delta(x, make_shared<op::v0::Broadcast>(delta, x_shape, get_reduction_axes()));
 }
 
 namespace
@@ -97,7 +97,8 @@ namespace
     }
 }
 
-bool op::v1::ReduceSum::evaluate(const HostTensorVector& outputs, const HostTensorVector& inputs)
+bool op::v1::ReduceSum::evaluate(const HostTensorVector& outputs,
+                                 const HostTensorVector& inputs) const
 {
     return evaluate_sum(inputs[0], outputs[0], get_reduction_axes());
 }

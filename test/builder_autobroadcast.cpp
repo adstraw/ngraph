@@ -21,14 +21,9 @@
 using namespace std;
 using namespace ngraph;
 
-shared_ptr<op::Parameter> getParamFromShape(const Shape& shape)
+shared_ptr<op::v0::Parameter> getParamFromShape(const Shape& shape)
 {
-    return make_shared<op::Parameter>(element::f32, shape);
-}
-
-inline const Shape& getShapeFromParam(const shared_ptr<Node>& node)
-{
-    return node->get_shape();
+    return make_shared<op::v0::Parameter>(element::f32, shape);
 }
 
 // input shapes are equal so AutoBroadcast does nothing
@@ -39,14 +34,14 @@ TEST(autobroadcast, no_broadcast_equal)
     auto rhs = getParamFromShape(s2345);
 
     auto shaped = builder::numpy_broadcast({lhs, rhs});
-    const shared_ptr<Node>& ab_lhs = shaped.first;
-    const shared_ptr<Node>& ab_rhs = shaped.second;
+    const Output<Node> ab_lhs = shaped.first;
+    const Output<Node> ab_rhs = shaped.second;
 
     EXPECT_EQ(ab_lhs, lhs); // no change
-    EXPECT_EQ(getShapeFromParam(ab_lhs), s2345);
+    EXPECT_EQ(ab_lhs.get_shape(), s2345);
 
     EXPECT_EQ(ab_rhs, rhs); // no change
-    EXPECT_EQ(getShapeFromParam(ab_rhs), s2345);
+    EXPECT_EQ(ab_rhs.get_shape(), s2345);
 }
 
 // input shapes are incompatable
@@ -72,14 +67,14 @@ TEST(autobroadcast, normal_broadcast_2d)
     auto rhs = getParamFromShape(s23);
 
     auto shaped = builder::numpy_broadcast({lhs, rhs});
-    const shared_ptr<Node>& ab_lhs = shaped.first;
-    const shared_ptr<Node>& ab_rhs = shaped.second;
+    const Output<Node> ab_lhs = shaped.first;
+    const Output<Node> ab_rhs = shaped.second;
 
     EXPECT_NE(ab_lhs, lhs);
-    EXPECT_EQ(getShapeFromParam(ab_lhs), s23);
+    EXPECT_EQ(ab_lhs.get_shape(), s23);
 
     EXPECT_EQ(ab_rhs, rhs); // no change
-    EXPECT_EQ(getShapeFromParam(ab_rhs), s23);
+    EXPECT_EQ(ab_rhs.get_shape(), s23);
 }
 
 // basic broadcast test
@@ -93,14 +88,14 @@ TEST(autobroadcast, normal_broadcast_3d)
     auto rhs = getParamFromShape(s234);
 
     auto shaped = builder::numpy_broadcast({lhs, rhs});
-    const shared_ptr<Node>& ab_lhs = shaped.first;
-    const shared_ptr<Node>& ab_rhs = shaped.second;
+    const Output<Node> ab_lhs = shaped.first;
+    const Output<Node> ab_rhs = shaped.second;
 
     EXPECT_NE(ab_lhs, lhs);
-    EXPECT_EQ(getShapeFromParam(ab_lhs), s234);
+    EXPECT_EQ(ab_lhs.get_shape(), s234);
 
     EXPECT_EQ(ab_rhs, rhs); // no change
-    EXPECT_EQ(getShapeFromParam(ab_rhs), s234);
+    EXPECT_EQ(ab_rhs.get_shape(), s234);
 }
 
 // basic broadcast test
@@ -114,14 +109,14 @@ TEST(autobroadcast, normal_broadcast_4d)
     auto rhs = getParamFromShape(s2345);
 
     auto shaped = builder::numpy_broadcast({lhs, rhs});
-    const shared_ptr<Node>& ab_lhs = shaped.first;
-    const shared_ptr<Node>& ab_rhs = shaped.second;
+    const Output<Node> ab_lhs = shaped.first;
+    const Output<Node> ab_rhs = shaped.second;
 
     EXPECT_NE(ab_lhs, lhs);
-    EXPECT_EQ(getShapeFromParam(ab_lhs), s2345);
+    EXPECT_EQ(ab_lhs.get_shape(), s2345);
 
     EXPECT_EQ(ab_rhs, rhs); // no change
-    EXPECT_EQ(getShapeFromParam(ab_rhs), s2345);
+    EXPECT_EQ(ab_rhs.get_shape(), s2345);
 }
 
 // basic reshape and broadcast test
@@ -135,14 +130,14 @@ TEST(autobroadcast, reshape_1x_broadcast)
     auto rhs = getParamFromShape(s2341);
 
     auto shaped = builder::numpy_broadcast({lhs, rhs});
-    const shared_ptr<Node>& ab_lhs = shaped.first;
-    const shared_ptr<Node>& ab_rhs = shaped.second;
+    const Output<Node> ab_lhs = shaped.first;
+    const Output<Node> ab_rhs = shaped.second;
 
     EXPECT_EQ(ab_lhs, lhs); // no change
-    EXPECT_EQ(getShapeFromParam(ab_lhs), s2345);
+    EXPECT_EQ(ab_lhs.get_shape(), s2345);
 
     EXPECT_NE(ab_rhs, rhs);
-    EXPECT_EQ(getShapeFromParam(ab_rhs), s2345);
+    EXPECT_EQ(ab_rhs.get_shape(), s2345);
 }
 
 // same as above, but additionally
@@ -156,16 +151,16 @@ TEST(autobroadcast, reshape_2x_broadcast)
     auto rhs = getParamFromShape(s2341);
 
     auto shaped = builder::numpy_broadcast({lhs, rhs});
-    const shared_ptr<Node>& ab_lhs = shaped.first;
-    const shared_ptr<Node>& ab_rhs = shaped.second;
+    const Output<Node> ab_lhs = shaped.first;
+    const Output<Node> ab_rhs = shaped.second;
 
     Shape s2345{2, 3, 4, 5};
 
     EXPECT_NE(ab_lhs, lhs);
-    EXPECT_EQ(getShapeFromParam(ab_lhs), s2345);
+    EXPECT_EQ(ab_lhs.get_shape(), s2345);
 
     EXPECT_NE(ab_rhs, rhs);
-    EXPECT_EQ(getShapeFromParam(ab_rhs), s2345);
+    EXPECT_EQ(ab_rhs.get_shape(), s2345);
 }
 
 // matching singular dimension on axis 2
@@ -180,14 +175,14 @@ TEST(autobroadcast, broadcast_with_dim1)
     auto rhs = getParamFromShape(s315);
 
     auto shaped = builder::numpy_broadcast({lhs, rhs});
-    const shared_ptr<Node>& ab_lhs = shaped.first;
-    const shared_ptr<Node>& ab_rhs = shaped.second;
+    const Output<Node> ab_lhs = shaped.first;
+    const Output<Node> ab_rhs = shaped.second;
 
     EXPECT_EQ(ab_lhs, lhs); // no change
-    EXPECT_EQ(getShapeFromParam(ab_lhs), s2315);
+    EXPECT_EQ(ab_lhs.get_shape(), s2315);
 
     EXPECT_NE(ab_rhs, rhs);
-    EXPECT_EQ(getShapeFromParam(ab_rhs), s2315);
+    EXPECT_EQ(ab_rhs.get_shape(), s2315);
 }
 
 // reshape only test
@@ -200,14 +195,14 @@ TEST(autobroadcast, broadcast_with_leading_dim1)
     auto rhs = getParamFromShape(s345);
 
     auto shaped = builder::numpy_broadcast({lhs, rhs});
-    const shared_ptr<Node>& ab_lhs = shaped.first;
-    const shared_ptr<Node>& ab_rhs = shaped.second;
+    const Output<Node> ab_lhs = shaped.first;
+    const Output<Node> ab_rhs = shaped.second;
 
     EXPECT_EQ(ab_lhs, lhs); // no change
-    EXPECT_EQ(getShapeFromParam(ab_lhs), s1345);
+    EXPECT_EQ(ab_lhs.get_shape(), s1345);
 
     EXPECT_NE(ab_rhs, rhs);
-    EXPECT_EQ(getShapeFromParam(ab_rhs), s1345);
+    EXPECT_EQ(ab_rhs.get_shape(), s1345);
 }
 
 TEST(autobroadcast, make_node_2_args)
@@ -217,7 +212,7 @@ TEST(autobroadcast, make_node_2_args)
     auto lhs = getParamFromShape(s21);
     auto rhs = getParamFromShape(s23);
 
-    shared_ptr<Node> op = builder::make_with_numpy_broadcast<op::Add>(lhs, rhs);
+    shared_ptr<Node> op = builder::make_with_numpy_broadcast<op::v1::Add>(lhs, rhs);
     EXPECT_NE(op, nullptr);
 }
 
@@ -226,11 +221,11 @@ TEST(autobroadcast, make_node_3_args)
     Shape s21{2, 1};
     Shape s23{2, 3};
 
-    auto predicates = make_shared<op::Parameter>(element::boolean, s23);
+    auto predicates = make_shared<op::v0::Parameter>(element::boolean, s23);
     auto lhs = getParamFromShape(s21);
     auto rhs = getParamFromShape(s23);
 
-    shared_ptr<Node> op = builder::make_with_numpy_broadcast<op::Select>(predicates, lhs, rhs);
+    shared_ptr<Node> op = builder::make_with_numpy_broadcast<op::v0::Select>(predicates, lhs, rhs);
     EXPECT_NE(op, nullptr);
 }
 
@@ -238,8 +233,8 @@ TEST(autobroadcast, numpy_broadcast_for_matmul_op_2d)
 {
     const Shape lhs{3, 1, 4, 6};
     const Shape rhs{6, 5};
-    const auto lhs_node = make_shared<op::Parameter>(element::f32, lhs);
-    const auto rhs_node = make_shared<op::Parameter>(element::f32, rhs);
+    const auto lhs_node = make_shared<op::v0::Parameter>(element::f32, lhs);
+    const auto rhs_node = make_shared<op::v0::Parameter>(element::f32, rhs);
 
     const OutputVector result = builder::numpy_broadcast_for_matmul_operation(lhs_node, rhs_node);
 
@@ -251,8 +246,8 @@ TEST(autobroadcast, numpy_broadcast_for_matmul_op_3d)
 {
     const Shape lhs{3, 1, 4, 6};
     const Shape rhs{2, 6, 5};
-    const auto lhs_node = make_shared<op::Parameter>(element::f32, lhs);
-    const auto rhs_node = make_shared<op::Parameter>(element::f32, rhs);
+    const auto lhs_node = make_shared<op::v0::Parameter>(element::f32, lhs);
+    const auto rhs_node = make_shared<op::v0::Parameter>(element::f32, rhs);
 
     const OutputVector result = builder::numpy_broadcast_for_matmul_operation(lhs_node, rhs_node);
 
@@ -264,8 +259,8 @@ TEST(autobroadcast, numpy_broadcast_for_matmul_op_nop)
 {
     const Shape lhs{4, 6};
     const Shape rhs{6, 5};
-    const auto lhs_node = make_shared<op::Parameter>(element::f32, lhs);
-    const auto rhs_node = make_shared<op::Parameter>(element::f32, rhs);
+    const auto lhs_node = make_shared<op::v0::Parameter>(element::f32, lhs);
+    const auto rhs_node = make_shared<op::v0::Parameter>(element::f32, rhs);
 
     const OutputVector result = builder::numpy_broadcast_for_matmul_operation(lhs_node, rhs_node);
 
@@ -278,8 +273,8 @@ TEST(autobroadcast, legacy_broadcast_scalar)
     const Shape lhs{2, 3, 4, 5};
     const Shape rhs{};
     size_t start_match_axis{3};
-    const auto lhs_node = make_shared<op::Parameter>(element::f32, lhs);
-    const auto rhs_node = make_shared<op::Parameter>(element::f32, rhs);
+    const auto lhs_node = make_shared<op::v0::Parameter>(element::f32, lhs);
+    const auto rhs_node = make_shared<op::v0::Parameter>(element::f32, rhs);
 
     const OutputVector result =
         builder::legacy_broadcast_for_binary_operation(lhs_node, rhs_node, start_match_axis);
@@ -293,8 +288,8 @@ TEST(autobroadcast, legacy_broadcast_1elem_tensor)
     const Shape lhs{2, 3, 4, 5};
     const Shape rhs{1, 1, 1};
     size_t start_match_axis{1};
-    const auto lhs_node = make_shared<op::Parameter>(element::f32, lhs);
-    const auto rhs_node = make_shared<op::Parameter>(element::f32, rhs);
+    const auto lhs_node = make_shared<op::v0::Parameter>(element::f32, lhs);
+    const auto rhs_node = make_shared<op::v0::Parameter>(element::f32, rhs);
 
     const OutputVector result =
         builder::legacy_broadcast_for_binary_operation(lhs_node, rhs_node, start_match_axis);
@@ -308,8 +303,8 @@ TEST(autobroadcast, legacy_broadcast_1d)
     const Shape lhs{2, 3, 4, 5};
     const Shape rhs{5};
     size_t start_match_axis{3};
-    const auto lhs_node = make_shared<op::Parameter>(element::f32, lhs);
-    const auto rhs_node = make_shared<op::Parameter>(element::f32, rhs);
+    const auto lhs_node = make_shared<op::v0::Parameter>(element::f32, lhs);
+    const auto rhs_node = make_shared<op::v0::Parameter>(element::f32, rhs);
 
     const OutputVector result =
         builder::legacy_broadcast_for_binary_operation(lhs_node, rhs_node, start_match_axis);
@@ -323,8 +318,8 @@ TEST(autobroadcast, legacy_broadcast_2d)
     const Shape lhs{2, 3, 4, 5};
     const Shape rhs{4, 5};
     size_t start_match_axis{2};
-    const auto lhs_node = make_shared<op::Parameter>(element::f32, lhs);
-    const auto rhs_node = make_shared<op::Parameter>(element::f32, rhs);
+    const auto lhs_node = make_shared<op::v0::Parameter>(element::f32, lhs);
+    const auto rhs_node = make_shared<op::v0::Parameter>(element::f32, rhs);
 
     const OutputVector result =
         builder::legacy_broadcast_for_binary_operation(lhs_node, rhs_node, start_match_axis);
@@ -338,8 +333,8 @@ TEST(autobroadcast, legacy_broadcast_2d_inside)
     const Shape lhs{2, 3, 4, 5};
     const Shape rhs{3, 4};
     size_t start_match_axis{1};
-    const auto lhs_node = make_shared<op::Parameter>(element::f32, lhs);
-    const auto rhs_node = make_shared<op::Parameter>(element::f32, rhs);
+    const auto lhs_node = make_shared<op::v0::Parameter>(element::f32, lhs);
+    const auto rhs_node = make_shared<op::v0::Parameter>(element::f32, rhs);
 
     const OutputVector result =
         builder::legacy_broadcast_for_binary_operation(lhs_node, rhs_node, start_match_axis);
@@ -353,8 +348,8 @@ TEST(autobroadcast, legacy_broadcast_1d_left)
     const Shape lhs{2, 3, 4, 5};
     const Shape rhs{2};
     size_t start_match_axis{0};
-    const auto lhs_node = make_shared<op::Parameter>(element::f32, lhs);
-    const auto rhs_node = make_shared<op::Parameter>(element::f32, rhs);
+    const auto lhs_node = make_shared<op::v0::Parameter>(element::f32, lhs);
+    const auto rhs_node = make_shared<op::v0::Parameter>(element::f32, rhs);
 
     const OutputVector result =
         builder::legacy_broadcast_for_binary_operation(lhs_node, rhs_node, start_match_axis);
@@ -367,8 +362,8 @@ TEST(autobroadcast, legacy_broadcast_identical)
 {
     const Shape lhs{2, 3, 4, 5};
     size_t start_match_axis{0};
-    const auto lhs_node = make_shared<op::Parameter>(element::f32, lhs);
-    const auto rhs_node = make_shared<op::Parameter>(element::f32, lhs);
+    const auto lhs_node = make_shared<op::v0::Parameter>(element::f32, lhs);
+    const auto rhs_node = make_shared<op::v0::Parameter>(element::f32, lhs);
 
     const OutputVector result =
         builder::legacy_broadcast_for_binary_operation(lhs_node, rhs_node, start_match_axis);
@@ -382,8 +377,8 @@ TEST(autobroadcast, opset1_legacy_broadcast_scalar)
     const Shape lhs{2, 3, 4, 5};
     const Shape rhs{};
     size_t start_match_axis{3};
-    const auto lhs_node = make_shared<op::Parameter>(element::f32, lhs);
-    const auto rhs_node = make_shared<op::Parameter>(element::f32, rhs);
+    const auto lhs_node = make_shared<op::v0::Parameter>(element::f32, lhs);
+    const auto rhs_node = make_shared<op::v0::Parameter>(element::f32, rhs);
 
     const Output<Node> result = builder::opset1::legacy_broadcast_for_binary_operation(
         lhs_node, rhs_node, start_match_axis);
@@ -396,8 +391,8 @@ TEST(autobroadcast, opset1_legacy_broadcast_1elem_tensor)
     const Shape lhs{2, 3, 4, 5};
     const Shape rhs{1, 1, 1};
     size_t start_match_axis{1};
-    const auto lhs_node = make_shared<op::Parameter>(element::f32, lhs);
-    const auto rhs_node = make_shared<op::Parameter>(element::f32, rhs);
+    const auto lhs_node = make_shared<op::v0::Parameter>(element::f32, lhs);
+    const auto rhs_node = make_shared<op::v0::Parameter>(element::f32, rhs);
 
     const Output<Node> result = builder::opset1::legacy_broadcast_for_binary_operation(
         lhs_node, rhs_node, start_match_axis);
@@ -410,8 +405,8 @@ TEST(autobroadcast, opset1_legacy_broadcast_1d)
     const Shape lhs{2, 3, 4, 5};
     const Shape rhs{5};
     size_t start_match_axis{3};
-    const auto lhs_node = make_shared<op::Parameter>(element::f32, lhs);
-    const auto rhs_node = make_shared<op::Parameter>(element::f32, rhs);
+    const auto lhs_node = make_shared<op::v0::Parameter>(element::f32, lhs);
+    const auto rhs_node = make_shared<op::v0::Parameter>(element::f32, rhs);
 
     const Output<Node> result = builder::opset1::legacy_broadcast_for_binary_operation(
         lhs_node, rhs_node, start_match_axis);
@@ -424,8 +419,8 @@ TEST(autobroadcast, opset1_legacy_broadcast_2d)
     const Shape lhs{2, 3, 4, 5};
     const Shape rhs{4, 5};
     size_t start_match_axis{2};
-    const auto lhs_node = make_shared<op::Parameter>(element::f32, lhs);
-    const auto rhs_node = make_shared<op::Parameter>(element::f32, rhs);
+    const auto lhs_node = make_shared<op::v0::Parameter>(element::f32, lhs);
+    const auto rhs_node = make_shared<op::v0::Parameter>(element::f32, rhs);
 
     const Output<Node> result = builder::opset1::legacy_broadcast_for_binary_operation(
         lhs_node, rhs_node, start_match_axis);
@@ -438,8 +433,8 @@ TEST(autobroadcast, opset1_legacy_broadcast_2d_inside)
     const Shape lhs{2, 3, 4, 5};
     const Shape rhs{3, 4};
     size_t start_match_axis{1};
-    const auto lhs_node = make_shared<op::Parameter>(element::f32, lhs);
-    const auto rhs_node = make_shared<op::Parameter>(element::f32, rhs);
+    const auto lhs_node = make_shared<op::v0::Parameter>(element::f32, lhs);
+    const auto rhs_node = make_shared<op::v0::Parameter>(element::f32, rhs);
 
     const Output<Node> result = builder::opset1::legacy_broadcast_for_binary_operation(
         lhs_node, rhs_node, start_match_axis);
@@ -452,8 +447,8 @@ TEST(autobroadcast, opset1_legacy_broadcast_1d_left)
     const Shape lhs{2, 3, 4, 5};
     const Shape rhs{2};
     size_t start_match_axis{0};
-    const auto lhs_node = make_shared<op::Parameter>(element::f32, lhs);
-    const auto rhs_node = make_shared<op::Parameter>(element::f32, rhs);
+    const auto lhs_node = make_shared<op::v0::Parameter>(element::f32, lhs);
+    const auto rhs_node = make_shared<op::v0::Parameter>(element::f32, rhs);
 
     const Output<Node> result = builder::opset1::legacy_broadcast_for_binary_operation(
         lhs_node, rhs_node, start_match_axis);
@@ -465,8 +460,8 @@ TEST(autobroadcast, opset1_legacy_broadcast_identical)
 {
     const Shape lhs{2, 3, 4, 5};
     size_t start_match_axis{0};
-    const auto lhs_node = make_shared<op::Parameter>(element::f32, lhs);
-    const auto rhs_node = make_shared<op::Parameter>(element::f32, lhs);
+    const auto lhs_node = make_shared<op::v0::Parameter>(element::f32, lhs);
+    const auto rhs_node = make_shared<op::v0::Parameter>(element::f32, lhs);
 
     const Output<Node> result = builder::opset1::legacy_broadcast_for_binary_operation(
         lhs_node, rhs_node, start_match_axis);

@@ -30,7 +30,7 @@ namespace ngraph
         namespace cpu
         {
             template <>
-            void Builder::BUILDER_DECL(ngraph::op::ReplaceSlice)
+            void Builder::BUILDER_DECL(ngraph::op::v0::ReplaceSlice)
             {
                 auto& functors = external_function->get_functors();
 
@@ -39,7 +39,7 @@ namespace ngraph
 
                 auto out_buffer_index = external_function->get_buffer_index(out[0].get_name());
 
-                auto replace_slice = static_cast<const ngraph::op::ReplaceSlice*>(node);
+                auto replace_slice = static_cast<const ngraph::op::v0::ReplaceSlice*>(node);
 
                 auto arg0_shape = args[0].get_shape();
                 auto arg1_shape = args[1].get_shape();
@@ -63,7 +63,7 @@ namespace ngraph
                 {
                     size_t size = args[0].get_element_type().size();
                     auto functor = [&, size, arg1_buffer_index, out_buffer_index](
-                        CPURuntimeContext* ctx, CPUExecutionContext* /* ectx */) {
+                                       CPURuntimeContext* ctx, CPUExecutionContext* /* ectx */) {
                         memcpy(ctx->buffer_data[out_buffer_index],
                                ctx->buffer_data[arg1_buffer_index],
                                size);
@@ -163,7 +163,10 @@ namespace ngraph
                 }
             }
 
-            void register_builders_replace_slice_cpp() { REGISTER_OP_BUILDER(ReplaceSlice); }
+            void register_builders_replace_slice_cpp()
+            {
+                REGISTER_OP_BUILDER(ngraph::op::v0::ReplaceSlice);
+            }
         }
     }
 }

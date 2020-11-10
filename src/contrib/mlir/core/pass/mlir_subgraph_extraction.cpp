@@ -26,7 +26,7 @@
 #include "ngraph/ops.hpp"
 
 using namespace ngraph::descriptor;
-using namespace ngraph::op;
+using namespace ngraph::op::v0;
 using namespace ngraph::pass;
 
 int MLIRSubgraphExtractionPass::MLIRSubgraph::m_curr_graph_id = 0;
@@ -60,20 +60,24 @@ void MLIRSubgraphExtractionPass::MLIRSubgraph::add_node(std::shared_ptr<Node> no
 // Construct a map of node to number of its input not being processes
 // Put the node with value 0 into a ready list
 // Go through the nodes in the ready list until the list is empty:
-// - if the last node processed is supported, try to find a supported node and add that node to the
+// - if the last node processed is supported, try to find a supported node and
+// add that node to the
 //   current sub-graph.
 // - if none is available, process an unsupported node.
 // - if the last node processed is unsupported, try to find an unsupported node.
-// - if none is available, start a new sub-graph, find a supported node and add that node to the new
+// - if none is available, start a new sub-graph, find a supported node and add
+// that node to the new
 //   sub-graph.
-// - Erase processed node form the ready list, update the value of its successors in the map, and
+// - Erase processed node form the ready list, update the value of its
+// successors in the map, and
 //   add its successor to ready list if value is 0.
 //
 // Sub-graph may contain multiple disjoint clusters.
 //
 // For each sub-graph found build a CompiledKernel(CK) node around it as follows
 // - all inputs edges to the sub-graph are cloned as inputs to CK node as well.
-// - all outputs edges from the sub-graph are removed and added as outputs to CK node instead.
+// - all outputs edges from the sub-graph are removed and added as outputs to CK
+// node instead.
 // - CK will internally have lists record graph nodes, and graph output nodes.
 bool MLIRSubgraphExtractionPass::run_on_function(std::shared_ptr<Function> func)
 {
@@ -258,17 +262,26 @@ void MLIRSubgraphExtractionPass::build_subgraphs(std::shared_ptr<Function> func)
     }
 
     NGRAPH_DEBUG << "[CK Extract] Get subgraphs output nodes";
-    // get output nodes for each sub-graph. Do this before attaching CK nodes since we will
+    // get output nodes for each sub-graph. Do this before attaching CK nodes
+    // since we will
     // remove output edges from the sub-graphs.
     for (IDGraphMap::iterator it = m_id_to_graph.begin(); it != m_id_to_graph.end(); it++)
     {
         MLIRSubgraph& sg = it->second;
         auto& nodes = sg.get_nodes();
-        NodeVector outputs = get_subgraph_outputs(NodeVector(nodes.begin(), nodes.end()),
-                                                  {} /*exclusions*/,
-                                                  false /* ignore unused */,
-                                                  false /* ignore output duplicates */);
-        sg.add_outputs(outputs);
+        OutputVector ov;
+        for (auto node : nodes)
+        {
+            ov.push_back(node->output(0));
+        }
+        OutputVector outputs = get_subgraph_outputs(
+            ov, {} /*exclusions*/, false /* ignore unused */, false /* ignore output duplicates */);
+        NodeVector nv;
+        for (Output<Node> output : outputs)
+        {
+            nv.push_back(output.get_node_shared_ptr());
+        }
+        sg.add_outputs(nv);
     }
 }
 
@@ -315,12 +328,14 @@ ngraph::NodeVector MLIRSubgraphExtractionPass::build_ck_nodes(std::shared_ptr<Fu
         NGRAPH_DEBUG << "   [CK Extract] CK Node = " << *ck;
     }
 
-    // Connect CompiledKernel to output nodes by replacing the output descriptors of the output
-    // Do this after all CK nodes are constructed since they add new edges in the graph (CK inputs)
+    // Connect CompiledKernel to output nodes by replacing the output descriptors
+    // of the output
+    // Do this after all CK nodes are constructed since they add new edges in the
+    // graph (CK inputs)
+
     for (auto& node : ck_nodes)
     {
         auto ck = std::static_pointer_cast<CompiledKernel>(node);
-
         auto& outputs_vector = ck->get_kernel_outputs();
         auto& node_list = ck->get_node_list();
         std::unordered_set<std::shared_ptr<Node>> node_set(node_list.begin(), node_list.end());
@@ -346,8 +361,7 @@ ngraph::NodeVector MLIRSubgraphExtractionPass::build_ck_nodes(std::shared_ptr<Fu
             for (auto& old_output : ck->outputs())
             {
                 auto inputs = old_output.get_target_inputs();
-                auto goe_node = old_output.as_single_output_node();
-                auto new_output = goe_node->output(0);
+                auto new_output = old_output;
                 for (auto& input : inputs)
                 {
                     input.replace_source_output(new_output);
@@ -418,7 +432,7 @@ void MLIRSubgraphExtractionPass::sanity_check(std::shared_ptr<Function> func, No
 // Check if convolution related nodes such as Convolution, ConvolutionBias,
 // ConvolutionRelu, ... can use callback.
 template <typename T>
-static bool can_use_mkldnn_conv_callback(ngraph::Node* node)
+static bool can_use_dnnl_conv_callback(ngraph::Node* node)
 {
     auto convolution = static_cast<const T*>(node);
     auto arg0_rank = node->get_input_shape(0).size();
@@ -428,7 +442,7 @@ static bool can_use_mkldnn_conv_callback(ngraph::Node* node)
         return false;
     }
 
-    // MKLDNN doesnt support negative padding
+    // DNNL doesnt support negative padding
     auto pad_above = convolution->get_padding_above();
     if (std::any_of(pad_above.begin(), pad_above.end(), [](size_t s) { return s < 0; }))
     {
@@ -472,7 +486,7 @@ bool MLIRSubgraphExtractionPass::is_supported_mlir_op(std::shared_ptr<Node> node
 
     // check on invariants expected by MLIR backend
 
-    if (auto div = as_type_ptr<ngraph::op::Divide>(node))
+    if (auto div = as_type_ptr<ngraph::op::v1::Divide>(node))
     {
         if (div->is_pythondiv())
         {
@@ -484,7 +498,7 @@ bool MLIRSubgraphExtractionPass::is_supported_mlir_op(std::shared_ptr<Node> node
     }
 
     // Dot is 2D only
-    if (is_type<ngraph::op::Dot>(node))
+    if (is_type<ngraph::op::v0::Dot>(node))
     {
         if (node->get_input_shape(0).size() != 2 || node->get_input_shape(1).size() != 2)
         {
@@ -496,7 +510,7 @@ bool MLIRSubgraphExtractionPass::is_supported_mlir_op(std::shared_ptr<Node> node
         }
     }
 
-    if (auto conv_node = as_type_ptr<ngraph::op::Convolution>(node))
+    if (auto conv_node = as_type_ptr<ngraph::op::v0::Convolution>(node))
     {
         // No padding for now
         auto pad_below = conv_node->get_padding_below();
@@ -510,18 +524,18 @@ bool MLIRSubgraphExtractionPass::is_supported_mlir_op(std::shared_ptr<Node> node
                std::all_of(window_dilation.begin(), window_dilation.end(), is_one);
     }
 
-    if (is_type<ngraph::op::ConvolutionBias>(node))
+    if (is_type<ngraph::op::v0::ConvolutionBias>(node))
     {
         // ConvBias is only supported through callback
         if (!getenv_bool("NGRAPH_MLIR_CALLBACK"))
         {
             return false;
         }
-        return can_use_mkldnn_conv_callback<ngraph::op::ConvolutionBias>(node.get());
+        return can_use_dnnl_conv_callback<ngraph::op::v0::ConvolutionBias>(node.get());
     }
 
-    // MKLDNN only supports softmax across single axis
-    if (auto softmax = as_type_ptr<ngraph::op::Softmax>(node))
+    // DNNL only supports softmax across single axis
+    if (auto softmax = as_type_ptr<ngraph::op::v0::Softmax>(node))
     {
         // Softmax is only supported through callback
         if (!getenv_bool("NGRAPH_MLIR_CALLBACK"))
@@ -535,7 +549,7 @@ bool MLIRSubgraphExtractionPass::is_supported_mlir_op(std::shared_ptr<Node> node
                node->get_input_element_type(0) == element::f32 && softmax->get_axes().size() == 1;
     }
 
-    if (auto avg_pool = as_type_ptr<ngraph::op::AvgPool>(node))
+    if (auto avg_pool = as_type_ptr<ngraph::op::v0::AvgPool>(node))
     {
         // AvgPool is only supported through callback
         if (!getenv_bool("NGRAPH_MLIR_CALLBACK"))
@@ -550,7 +564,7 @@ bool MLIRSubgraphExtractionPass::is_supported_mlir_op(std::shared_ptr<Node> node
                node->get_input_element_type(0) == element::f32;
     }
 
-    if (auto avg_pool_backprop = as_type_ptr<ngraph::op::AvgPoolBackprop>(node))
+    if (auto avg_pool_backprop = as_type_ptr<ngraph::op::v0::AvgPoolBackprop>(node))
     {
         // AvgPoolBackprop is only supported through callback
         if (!getenv_bool("NGRAPH_MLIR_CALLBACK"))
@@ -565,7 +579,7 @@ bool MLIRSubgraphExtractionPass::is_supported_mlir_op(std::shared_ptr<Node> node
                node->get_input_element_type(0) == element::f32;
     }
 
-    if (auto max_pool_backprop = as_type_ptr<ngraph::op::MaxPoolBackprop>(node))
+    if (auto max_pool_backprop = as_type_ptr<ngraph::op::v0::MaxPoolBackprop>(node))
     {
         // MaxPoolBackprop is only supported through callback
         if (!getenv_bool("NGRAPH_MLIR_CALLBACK"))
@@ -580,7 +594,7 @@ bool MLIRSubgraphExtractionPass::is_supported_mlir_op(std::shared_ptr<Node> node
                node->get_input_element_type(0) == element::f32;
     }
 
-    if (auto max_pool = as_type_ptr<ngraph::op::MaxPool>(node))
+    if (auto max_pool = as_type_ptr<ngraph::op::v0::MaxPool>(node))
     {
         // MaxPool is only supported through callback
         if (!getenv_bool("NGRAPH_MLIR_CALLBACK"))
@@ -595,7 +609,7 @@ bool MLIRSubgraphExtractionPass::is_supported_mlir_op(std::shared_ptr<Node> node
                node->get_input_element_type(0) == element::f32;
     }
 
-    if (is_type<ngraph::op::MatMul>(node))
+    if (is_type<ngraph::op::v0::MatMul>(node))
     {
         // MatMul is only supported through callback
         if (!getenv_bool("NGRAPH_MLIR_CALLBACK") || node->get_input_shape(0).size() != 2 ||
@@ -605,7 +619,7 @@ bool MLIRSubgraphExtractionPass::is_supported_mlir_op(std::shared_ptr<Node> node
         }
     }
 
-    if (is_type<ngraph::op::Gemm>(node))
+    if (is_type<ngraph::op::v0::Gemm>(node))
     {
         // Gemm is only supported through callback
         if (!getenv_bool("NGRAPH_MLIR_CALLBACK") || node->get_input_shape(0).size() != 2 ||

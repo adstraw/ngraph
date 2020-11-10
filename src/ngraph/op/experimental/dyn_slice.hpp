@@ -70,9 +70,6 @@ namespace ngraph
                                                const OutputVector& deltas) override;
 
             private:
-                /// Helper method to compute output shape
-                Shape compute_output_shape() const;
-
                 AxisSet m_lower_bounds_mask;
                 AxisSet m_upper_bounds_mask;
                 AxisSet m_new_axis;
@@ -80,6 +77,5 @@ namespace ngraph
                 AxisSet m_ellipsis_mask;
             };
         }
-        using v0::DynSlice;
     }
 }

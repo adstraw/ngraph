@@ -15,7 +15,8 @@
 //*****************************************************************************
 
 // NOTE: This file follows nGraph format style.
-// Follows nGraph naming convention for public APIs only, else MLIR naming convention.
+// Follows nGraph naming convention for public APIs only, else MLIR naming
+// convention.
 
 #pragma once
 
@@ -69,16 +70,18 @@ namespace ngraph
                 /// Helper to create memref arguments for MLIR function signature
                 llvm::SmallVector<void*, 8> allocateMemrefArgs();
 
-                /// Helper to allocate a default MemRef descriptor for LLVM. Handles static shapes
+                /// Helper to allocate a default MemRef descriptor for LLVM. Handles static
+                /// shapes
                 /// only for now.
                 StaticMemRef* allocateDefaultMemrefDescriptor(size_t);
 
             private:
-                // Pointers to externally allocated memory for sub-graph's input and output tensors.
+                // Pointers to externally allocated memory for sub-graph's input and output
+                // tensors.
                 const std::vector<MemRefArg>* m_externalTensors;
                 // Arguments for the MLIR function generated for the nGraph sub-graph.
                 llvm::SmallVector<void*, 8> m_invokeArgs;
-                std::unique_ptr<mlir::ExecutionEngine> m_engine;
+                std::unique_ptr<::mlir::ExecutionEngine> m_engine;
                 std::vector<size_t> m_ranks;
             };
         }

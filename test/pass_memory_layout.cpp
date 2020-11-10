@@ -24,7 +24,6 @@
 #include "ngraph/ngraph.hpp"
 #include "ngraph/pass/dump_sorted.hpp"
 #include "ngraph/pass/liveness.hpp"
-#include "ngraph/pass/liveness.hpp"
 #include "ngraph/pass/manager.hpp"
 #include "ngraph/pass/memory_layout.hpp"
 #include "ngraph/pass/visualize_tree.hpp"
@@ -224,8 +223,8 @@ TEST(memory_layout, constant)
     pass_manager.register_pass<pass::MemoryLayout>();
 
     Shape shape{1};
-    auto c = op::Constant::create(element::i32, shape, {5});
-    auto f = make_shared<Function>(make_shared<op::Negative>(c), ParameterVector{});
+    auto c = op::v0::Constant::create(element::i32, shape, {5});
+    auto f = make_shared<Function>(make_shared<op::v0::Negative>(c), ParameterVector{});
 
     pass_manager.run_passes(f);
     auto sorted = f->get_ordered_ops();

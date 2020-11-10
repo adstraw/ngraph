@@ -24,7 +24,8 @@ Compile Flags
    ``NGRAPH_CODE_COVERAGE_ENABLE``, Enable code coverage data collection, ``FALSE``
    ``NGRAPH_DEBUG_ENABLE``, Enable output for ``NGRAPH_DEBUG`` statements, ``FALSE``
    ``NGRAPH_DEPRECATED_ENABLE``, Enable compiler deprecation pragmas for deprecated APIs (recommended only for development use), ``FALSE``
-   ``NGRAPH_DEX_ONLY``, Build CPU DEX without codegen, ``FALSE``
+   ``NGRAPH_CPU_ENABLE``, Build CPU backend, ``TRUE``
+   ``NGRAPH_CPU_CODEGEN_ENABLE``, Build CPU Codegen backend, ``FALSE``
    ``NGRAPH_DOC_BUILD_ENABLE``,  Automatically build documentation, ``OFF``
    ``NGRAPH_FAST_MATH_ENABLE``,  Enable fast math, ``ON``
    ``NGRAPH_HALIDE``,  ,``OFF``
@@ -144,5 +145,5 @@ Looking at graph objects
 ------------------------
 
 A number of nGraph objects can print themselves on streams. For example,``cerr << a + b`` produces
-``v0::Add Add_2(Parameter_0[0]:f32{2,3}, Parameter_1[0]:f32{2,3}):(f32{2,3})`` indicating the
+``v1::Add Add_2(Parameter_0[0]:f32{2,3}, Parameter_1[0]:f32{2,3}):(f32{2,3})`` indicating the
 specific version of the op, its name, arguments, and outputs.

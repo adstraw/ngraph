@@ -22,21 +22,22 @@ using namespace std;
 using namespace ngraph;
 
 template <typename T>
-static shared_ptr<op::Constant> fold_constant_reverse_helper(shared_ptr<op::Constant> constant,
-                                                             const AxisSet& reversed_axes)
+static Output<Node> fold_constant_reverse_helper(shared_ptr<op::v0::Constant> constant,
+                                                 const AxisSet& reversed_axes)
 {
-    const Shape& out_shape = constant->get_shape();
+    const Shape& out_shape = constant->get_output_shape(0);
     runtime::AlignedBuffer buffer(shape_size(out_shape) * sizeof(T));
     T* data_ptr = buffer.get_ptr<T>();
 
     runtime::reference::reverse<T>(
         constant->get_vector<T>().data(), data_ptr, out_shape, out_shape, reversed_axes);
 
-    return make_shared<op::Constant>(constant->get_output_element_type(0), out_shape, data_ptr);
+    return make_shared<op::v0::Constant>(constant->get_output_element_type(0), out_shape, data_ptr)
+        ->output(0);
 }
 
-static shared_ptr<op::Constant> fold_constant_reverse(shared_ptr<op::Constant> constant,
-                                                      const AxisSet& reversed_axes)
+static Output<Node> fold_constant_reverse(shared_ptr<op::v0::Constant> constant,
+                                          const AxisSet& reversed_axes)
 {
     auto& input_element_type = constant->get_output_element_type(0);
 
@@ -90,8 +91,8 @@ static shared_ptr<op::Constant> fold_constant_reverse(shared_ptr<op::Constant> c
 void pass::ConstantFolding::construct_constant_reverse()
 {
     auto constant_label = make_shared<pattern::op::Label>(
-        element::i32, Shape{2, 3, 4}, pattern::has_class<op::Constant>());
-    auto convert_op = make_shared<op::Reverse>(constant_label, AxisSet{0, 1, 2});
+        element::i32, Shape{2, 3, 4}, pattern::has_class<op::v0::Constant>());
+    auto convert_op = make_shared<op::v0::Reverse>(constant_label, AxisSet{0, 1, 2});
 
     auto constant_reverse_callback = [constant_label](pattern::Matcher& m) {
         NGRAPH_DEBUG << "In callback for constant_reverse_callback against node = "
@@ -99,13 +100,17 @@ void pass::ConstantFolding::construct_constant_reverse()
 
         auto pattern_map = m.get_pattern_map();
 
-        auto constant_match = static_pointer_cast<op::Constant>(pattern_map[constant_label]);
-        auto reverse_match = static_pointer_cast<op::Reverse>(m.get_match_root());
+        auto constant_match = static_pointer_cast<op::v0::Constant>(pattern_map[constant_label]);
+        auto reverse_match = m.get_match_root_as<op::v0::Reverse>();
+        NGRAPH_CHECK(reverse_match,
+                     "match root node ",
+                     *m.get_match_root(),
+                     " not of type `op::v0::Reverse`");
 
         NGRAPH_CHECK(revalidate_and_ensure_static(reverse_match));
 
-        replace_node(m.get_match_root(),
-                     fold_constant_reverse(constant_match, reverse_match->get_reversed_axes()));
+        m.get_match_value().replace(
+            fold_constant_reverse(constant_match, reverse_match->get_reversed_axes()));
         return true;
     };
 

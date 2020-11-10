@@ -37,35 +37,13 @@ TEST(backend_api, invalid_name)
     ASSERT_ANY_THROW(ngraph::runtime::Backend::create("COMPLETELY-BOGUS-NAME"));
 }
 
-TEST(backend_api, config)
-{
-    auto backend = runtime::Backend::create("INTERPRETER");
-    string error;
-    string message = "hello";
-    map<string, string> config = {{"test_echo", message}};
-    EXPECT_TRUE(backend->set_config(config, error));
-    EXPECT_STREQ(error.c_str(), message.c_str());
-    EXPECT_FALSE(backend->set_config({}, error));
-    EXPECT_STREQ(error.c_str(), "");
-}
-
-TEST(backend_api, config_unsupported)
-{
-    auto backend = runtime::Backend::create("NOP");
-    string error;
-    string message = "hello";
-    map<string, string> config = {{"test_echo", message}};
-    EXPECT_FALSE(backend->set_config(config, error));
-    EXPECT_FALSE(error == "");
-}
-
 #ifndef NGRAPH_JSON_DISABLE
 TEST(backend_api, save_load)
 {
     Shape shape{2, 2};
-    auto A = make_shared<op::Parameter>(element::f32, shape);
-    auto B = make_shared<op::Parameter>(element::f32, shape);
-    auto f = make_shared<Function>(make_shared<op::Add>(A, B), ParameterVector{A, B});
+    auto A = make_shared<op::v0::Parameter>(element::f32, shape);
+    auto B = make_shared<op::v0::Parameter>(element::f32, shape);
+    auto f = make_shared<Function>(make_shared<op::v1::Add>(A, B), ParameterVector{A, B});
 
     auto backend = runtime::Backend::create("INTERPRETER");
 

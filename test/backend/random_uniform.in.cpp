@@ -30,18 +30,18 @@ static string s_manifest = "${MANIFEST}";
 
 NGRAPH_TEST(${BACKEND_NAME}, random_uniform_all_static_seed_unused)
 {
-    auto min_val = make_shared<op::Constant>(element::f32, Shape{}, std::vector<float>{63.0f});
-    auto max_val = make_shared<op::Constant>(element::f32, Shape{}, std::vector<float>{120.0f});
+    auto min_val = make_shared<op::v0::Constant>(element::f32, Shape{}, std::vector<float>{63.0f});
+    auto max_val = make_shared<op::v0::Constant>(element::f32, Shape{}, std::vector<float>{120.0f});
     auto result_shape =
-        make_shared<op::Constant>(element::i64, Shape{3}, std::vector<float>{50, 200, 100});
+        make_shared<op::v0::Constant>(element::i64, Shape{3}, std::vector<float>{50, 200, 100});
     auto use_fixed_seed =
-        make_shared<op::Constant>(element::boolean, Shape{}, std::vector<char>{0});
+        make_shared<op::v0::Constant>(element::boolean, Shape{}, std::vector<char>{0});
     size_t fixed_seed = 9999;
 
-    auto ru =
-        make_shared<op::RandomUniform>(min_val, max_val, result_shape, use_fixed_seed, fixed_seed);
+    auto ru = make_shared<op::v0::RandomUniform>(
+        min_val, max_val, result_shape, use_fixed_seed, fixed_seed);
 
-    auto f = make_shared<Function>(NodeVector{ru}, ParameterVector{});
+    auto f = make_shared<Function>(OutputVector{ru}, ParameterVector{});
 
     auto backend = runtime::Backend::create("${BACKEND_NAME}");
 
@@ -70,18 +70,18 @@ NGRAPH_TEST(${BACKEND_NAME}, random_uniform_all_static_seed_unused)
 
 NGRAPH_TEST(${BACKEND_NAME}, random_uniform_all_static_seed_used)
 {
-    auto min_val = make_shared<op::Constant>(element::f32, Shape{}, std::vector<float>{63.0f});
-    auto max_val = make_shared<op::Constant>(element::f32, Shape{}, std::vector<float>{120.0f});
+    auto min_val = make_shared<op::v0::Constant>(element::f32, Shape{}, std::vector<float>{63.0f});
+    auto max_val = make_shared<op::v0::Constant>(element::f32, Shape{}, std::vector<float>{120.0f});
     auto result_shape =
-        make_shared<op::Constant>(element::i64, Shape{3}, std::vector<float>{50, 200, 100});
+        make_shared<op::v0::Constant>(element::i64, Shape{3}, std::vector<float>{50, 200, 100});
     auto use_fixed_seed =
-        make_shared<op::Constant>(element::boolean, Shape{}, std::vector<char>{1});
+        make_shared<op::v0::Constant>(element::boolean, Shape{}, std::vector<char>{1});
     size_t fixed_seed = 9999;
 
-    auto ru =
-        make_shared<op::RandomUniform>(min_val, max_val, result_shape, use_fixed_seed, fixed_seed);
+    auto ru = make_shared<op::v0::RandomUniform>(
+        min_val, max_val, result_shape, use_fixed_seed, fixed_seed);
 
-    auto f = make_shared<Function>(NodeVector{ru}, ParameterVector{});
+    auto f = make_shared<Function>(OutputVector{ru}, ParameterVector{});
 
     auto backend = runtime::Backend::create("${BACKEND_NAME}");
 
@@ -108,17 +108,17 @@ NGRAPH_TEST(${BACKEND_NAME}, random_uniform_all_static_seed_used)
 
 NGRAPH_TEST(${BACKEND_NAME}, random_uniform_seed_use_dynamic)
 {
-    auto min_val = make_shared<op::Constant>(element::f32, Shape{}, std::vector<float>{63.0f});
-    auto max_val = make_shared<op::Constant>(element::f32, Shape{}, std::vector<float>{120.0f});
+    auto min_val = make_shared<op::v0::Constant>(element::f32, Shape{}, std::vector<float>{63.0f});
+    auto max_val = make_shared<op::v0::Constant>(element::f32, Shape{}, std::vector<float>{120.0f});
     auto result_shape =
-        make_shared<op::Constant>(element::i64, Shape{3}, std::vector<float>{50, 200, 100});
-    auto use_fixed_seed = make_shared<op::Parameter>(element::boolean, Shape{});
+        make_shared<op::v0::Constant>(element::i64, Shape{3}, std::vector<float>{50, 200, 100});
+    auto use_fixed_seed = make_shared<op::v0::Parameter>(element::boolean, Shape{});
     size_t fixed_seed = 9999;
 
-    auto ru =
-        make_shared<op::RandomUniform>(min_val, max_val, result_shape, use_fixed_seed, fixed_seed);
+    auto ru = make_shared<op::v0::RandomUniform>(
+        min_val, max_val, result_shape, use_fixed_seed, fixed_seed);
 
-    auto f = make_shared<Function>(NodeVector{ru}, ParameterVector{use_fixed_seed});
+    auto f = make_shared<Function>(OutputVector{ru}, ParameterVector{use_fixed_seed});
 
     auto backend = runtime::Backend::create("${BACKEND_NAME}");
 
@@ -168,18 +168,18 @@ NGRAPH_TEST(${BACKEND_NAME}, random_uniform_seed_use_dynamic)
 
 NGRAPH_TEST(${BACKEND_NAME}, random_uniform_all_static_range_dynamic)
 {
-    auto min_val = make_shared<op::Parameter>(element::f32, Shape{});
-    auto max_val = make_shared<op::Parameter>(element::f32, Shape{});
+    auto min_val = make_shared<op::v0::Parameter>(element::f32, Shape{});
+    auto max_val = make_shared<op::v0::Parameter>(element::f32, Shape{});
     auto result_shape =
-        make_shared<op::Constant>(element::i64, Shape{3}, std::vector<float>{50, 200, 100});
+        make_shared<op::v0::Constant>(element::i64, Shape{3}, std::vector<float>{50, 200, 100});
     auto use_fixed_seed =
-        make_shared<op::Constant>(element::boolean, Shape{}, std::vector<char>{0});
+        make_shared<op::v0::Constant>(element::boolean, Shape{}, std::vector<char>{0});
     size_t fixed_seed = 9999;
 
-    auto ru =
-        make_shared<op::RandomUniform>(min_val, max_val, result_shape, use_fixed_seed, fixed_seed);
+    auto ru = make_shared<op::v0::RandomUniform>(
+        min_val, max_val, result_shape, use_fixed_seed, fixed_seed);
 
-    auto f = make_shared<Function>(NodeVector{ru}, ParameterVector{min_val, max_val});
+    auto f = make_shared<Function>(OutputVector{ru}, ParameterVector{min_val, max_val});
 
     auto backend = runtime::Backend::create("${BACKEND_NAME}");
 
@@ -234,16 +234,16 @@ NGRAPH_TEST(${BACKEND_NAME}, random_uniform_all_static_range_dynamic)
 
 NGRAPH_TEST(${BACKEND_NAME}, random_uniform_dynamic_shapes)
 {
-    auto min_val = make_shared<op::Parameter>(element::f32, Shape{});
-    auto max_val = make_shared<op::Parameter>(element::f32, Shape{});
-    auto result_shape = make_shared<op::Parameter>(element::i64, PartialShape::dynamic(1));
-    auto use_fixed_seed = make_shared<op::Parameter>(element::boolean, Shape{});
+    auto min_val = make_shared<op::v0::Parameter>(element::f32, Shape{});
+    auto max_val = make_shared<op::v0::Parameter>(element::f32, Shape{});
+    auto result_shape = make_shared<op::v0::Parameter>(element::i64, PartialShape::dynamic(1));
+    auto use_fixed_seed = make_shared<op::v0::Parameter>(element::boolean, Shape{});
     size_t fixed_seed = 9999;
 
-    auto ru =
-        make_shared<op::RandomUniform>(min_val, max_val, result_shape, use_fixed_seed, fixed_seed);
+    auto ru = make_shared<op::v0::RandomUniform>(
+        min_val, max_val, result_shape, use_fixed_seed, fixed_seed);
 
-    auto f = make_shared<Function>(NodeVector{ru},
+    auto f = make_shared<Function>(OutputVector{ru},
                                    ParameterVector{min_val, max_val, result_shape, use_fixed_seed});
 
     // Getting a dynamic backend here.

@@ -17,8 +17,8 @@
 #include "ngraph/runtime/cpu/kernel/avg_pool.hpp"
 #include "ngraph/op/avg_pool.hpp"
 #include "ngraph/runtime/cpu/cpu_builder.hpp"
-#include "ngraph/runtime/cpu/mkldnn_invoke.hpp"
-#include "ngraph/runtime/cpu/mkldnn_utils.hpp"
+#include "ngraph/runtime/cpu/dnnl_invoke.hpp"
+#include "ngraph/runtime/cpu/dnnl_utils.hpp"
 
 using namespace std;
 using namespace ngraph;
@@ -30,9 +30,9 @@ namespace ngraph
         namespace cpu
         {
             template <>
-            void Builder::BUILDER_DECL(ngraph::op::AvgPool)
+            void Builder::BUILDER_DECL(ngraph::op::v0::AvgPool)
             {
-                auto avg_pool = static_cast<const ngraph::op::AvgPool*>(node);
+                auto avg_pool = static_cast<const ngraph::op::v0::AvgPool*>(node);
 
                 auto& functors = external_function->get_functors();
 
@@ -49,17 +49,17 @@ namespace ngraph
                 auto include_padding_in_avg_computation =
                     avg_pool->get_include_padding_in_avg_computation();
 
-                if (runtime::cpu::mkldnn_utils::use_mkldnn_kernel(node))
+                if (runtime::cpu::dnnl_utils::use_dnnl_kernel(node))
                 {
-                    auto& mkldnn_emitter = external_function->get_mkldnn_emitter();
+                    auto& dnnl_emitter = external_function->get_dnnl_emitter();
                     auto avg_pool_desc =
-                        mkldnn_emitter->get_avg_pooling_forward_desc<ngraph::op::AvgPool>(node,
-                                                                                          false);
+                        dnnl_emitter->get_avg_pooling_forward_desc<ngraph::op::v0::AvgPool>(node,
+                                                                                            false);
                     size_t scratchpad_size = QUERY_SCRATCHPAD(pooling_forward, avg_pool_desc);
 
                     // AvgPool needs 3 primitives: input, result, and pooling_forward.
-                    size_t avg_pool_index = mkldnn_emitter->reserve_primitive_space(3);
-                    auto& deps = mkldnn_emitter->get_primitive_deps(avg_pool_index);
+                    size_t avg_pool_index = dnnl_emitter->reserve_primitive_space(3);
+                    auto& deps = dnnl_emitter->get_primitive_deps(avg_pool_index);
 
                     auto functor = [&,
                                     avg_pool_desc,
@@ -70,24 +70,23 @@ namespace ngraph
                                                       CPUExecutionContext* /* ectx */) {
                         if (ctx->first_iteration)
                         {
-                            mkldnn_emitter->build_pooling_forward(ctx->mkldnn_memories,
-                                                                  ctx->mkldnn_primitives,
-                                                                  ctx->mkldnn_scratchpad_mds,
-                                                                  avg_pool_desc,
-                                                                  deps,
-                                                                  avg_pool_index);
+                            dnnl_emitter->build_pooling_forward(ctx->dnnl_memories,
+                                                                ctx->dnnl_primitives,
+                                                                ctx->dnnl_scratchpad_mds,
+                                                                avg_pool_desc,
+                                                                deps,
+                                                                avg_pool_index);
                         }
-                        cpu::mkldnn_utils::set_memory_ptr(
+                        cpu::dnnl_utils::set_memory_ptr(
                             ctx, deps[0], ctx->buffer_data[arg0_buffer_index]);
-                        cpu::mkldnn_utils::set_memory_ptr(
+                        cpu::dnnl_utils::set_memory_ptr(
                             ctx, deps[1], ctx->buffer_data[out_buffer_index]);
 
-                        cpu::mkldnn_utils::mkldnn_invoke_primitive(
-                            ctx,
-                            avg_pool_index,
-                            deps,
-                            cpu::mkldnn_utils::OpType::AVGPOOL,
-                            scratchpad_size);
+                        cpu::dnnl_utils::dnnl_invoke_primitive(ctx,
+                                                               avg_pool_index,
+                                                               deps,
+                                                               cpu::dnnl_utils::OpType::AVGPOOL,
+                                                               scratchpad_size);
                     };
                     functors.emplace_back(functor);
                 }
@@ -124,9 +123,9 @@ namespace ngraph
             }
 
             template <>
-            void Builder::BUILDER_DECL(ngraph::op::AvgPoolBackprop)
+            void Builder::BUILDER_DECL(ngraph::op::v0::AvgPoolBackprop)
             {
-                auto apb = static_cast<const ngraph::op::AvgPoolBackprop*>(node);
+                auto apb = static_cast<const ngraph::op::v0::AvgPoolBackprop*>(node);
 
                 auto& functors = external_function->get_functors();
 
@@ -143,21 +142,21 @@ namespace ngraph
                 auto include_padding_in_avg_computation =
                     apb->get_include_padding_in_avg_computation();
 
-                if (runtime::cpu::mkldnn_utils::use_mkldnn_kernel(node))
+                if (runtime::cpu::dnnl_utils::use_dnnl_kernel(node))
                 {
-                    auto& mkldnn_emitter = external_function->get_mkldnn_emitter();
+                    auto& dnnl_emitter = external_function->get_dnnl_emitter();
                     auto avg_pool_fwd_desc =
-                        mkldnn_emitter->get_avg_pooling_forward_desc<ngraph::op::AvgPoolBackprop>(
+                        dnnl_emitter->get_avg_pooling_forward_desc<ngraph::op::v0::AvgPoolBackprop>(
                             node, true);
                     auto avg_pool_desc =
-                        mkldnn_emitter->get_avg_pooling_backward_desc<ngraph::op::AvgPoolBackprop>(
-                            node);
+                        dnnl_emitter
+                            ->get_avg_pooling_backward_desc<ngraph::op::v0::AvgPoolBackprop>(node);
                     size_t scratchpad_size = QUERY_SCRATCHPAD_2ARGS(
                         avg_pooling_backward, avg_pool_fwd_desc, avg_pool_desc);
 
                     // AvgPoolBackprop needs 3 primitives: input, result, and pooling_backward.
-                    size_t avg_pool_index = mkldnn_emitter->reserve_primitive_space(3);
-                    auto& deps = mkldnn_emitter->get_primitive_deps(avg_pool_index);
+                    size_t avg_pool_index = dnnl_emitter->reserve_primitive_space(3);
+                    auto& deps = dnnl_emitter->get_primitive_deps(avg_pool_index);
 
                     auto functor = [&,
                                     avg_pool_desc,
@@ -169,24 +168,24 @@ namespace ngraph
                                                       CPUExecutionContext* /* ectx */) {
                         if (ctx->first_iteration)
                         {
-                            mkldnn_emitter->build_pooling_backward(ctx->mkldnn_memories,
-                                                                   ctx->mkldnn_primitives,
-                                                                   ctx->mkldnn_scratchpad_mds,
-                                                                   avg_pool_desc,
-                                                                   avg_pool_fwd_desc,
-                                                                   deps,
-                                                                   avg_pool_index);
+                            dnnl_emitter->build_pooling_backward(ctx->dnnl_memories,
+                                                                 ctx->dnnl_primitives,
+                                                                 ctx->dnnl_scratchpad_mds,
+                                                                 avg_pool_desc,
+                                                                 avg_pool_fwd_desc,
+                                                                 deps,
+                                                                 avg_pool_index);
                         }
-                        cpu::mkldnn_utils::set_memory_ptr(
+                        cpu::dnnl_utils::set_memory_ptr(
                             ctx, deps[0], ctx->buffer_data[delta_buffer_index]);
-                        cpu::mkldnn_utils::set_memory_ptr(
+                        cpu::dnnl_utils::set_memory_ptr(
                             ctx, deps[1], ctx->buffer_data[out_buffer_index]);
 
-                        cpu::mkldnn_utils::mkldnn_invoke_primitive(
+                        cpu::dnnl_utils::dnnl_invoke_primitive(
                             ctx,
                             avg_pool_index,
                             deps,
-                            cpu::mkldnn_utils::OpType::AVGPOOLBACKPROP,
+                            cpu::dnnl_utils::OpType::AVGPOOLBACKPROP,
                             scratchpad_size);
                     };
                     functors.emplace_back(functor);
@@ -225,8 +224,8 @@ namespace ngraph
 
             void register_builders_avg_pool_cpp()
             {
-                REGISTER_OP_BUILDER(AvgPool);
-                REGISTER_OP_BUILDER(AvgPoolBackprop);
+                REGISTER_OP_BUILDER(ngraph::op::v0::AvgPool);
+                REGISTER_OP_BUILDER(ngraph::op::v0::AvgPoolBackprop);
             }
         }
     }

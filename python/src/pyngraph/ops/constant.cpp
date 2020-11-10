@@ -40,25 +40,25 @@ std::vector<ssize_t> _get_byte_strides(const ngraph::Shape& s)
 }
 
 template <typename T>
-py::buffer_info _get_buffer_info(const ngraph::op::Constant& c)
+py::buffer_info _get_buffer_info(const ngraph::op::v0::Constant& c)
 {
-    ngraph::Shape shape = c.get_shape();
+    ngraph::Shape shape = c.get_output_shape(0);
     return py::buffer_info(
-        const_cast<void*>(c.get_data_ptr()),               /* Pointer to buffer */
-        static_cast<ssize_t>(c.get_element_type().size()), /* Size of one scalar */
-        py::format_descriptor<T>::format(),                /* Python struct-style format
-                                                              descriptor */
-        static_cast<ssize_t>(shape.size()),                /* Number of dimensions */
-        std::vector<ssize_t>{shape.begin(), shape.end()},  /* Buffer dimensions */
-        _get_byte_strides<T>(shape)                        /* Strides (in bytes) for each index */
-        );
+        const_cast<void*>(c.get_data_ptr()),                       /* Pointer to buffer */
+        static_cast<ssize_t>(c.get_output_element_type(0).size()), /* Size of one scalar */
+        py::format_descriptor<T>::format(),                        /* Python struct-style format
+                                                                      descriptor */
+        static_cast<ssize_t>(shape.size()),                        /* Number of dimensions */
+        std::vector<ssize_t>{shape.begin(), shape.end()},          /* Buffer dimensions */
+        _get_byte_strides<T>(shape) /* Strides (in bytes) for each index */
+    );
 }
 
 void regclass_pyngraph_op_Constant(py::module m)
 {
-    py::class_<ngraph::op::Constant, std::shared_ptr<ngraph::op::Constant>, ngraph::Node> constant(
-        m, "Constant", py::buffer_protocol());
-    constant.doc() = "ngraph.impl.op.Constant wraps ngraph::op::Constant";
+    py::class_<ngraph::op::v0::Constant, std::shared_ptr<ngraph::op::v0::Constant>, ngraph::Node>
+        constant(m, "Constant", py::buffer_protocol());
+    constant.doc() = "ngraph.impl.op.Constant wraps ngraph::op::v0::Constant";
     constant.def(
         py::init<const ngraph::element::Type&, const ngraph::Shape&, const std::vector<char>&>());
     constant.def(
@@ -89,10 +89,10 @@ void regclass_pyngraph_op_Constant(py::module m)
                           const ngraph::Shape&,
                           const std::vector<uint64_t>&>());
 
-    constant.def("get_value_strings", &ngraph::op::Constant::get_value_strings);
+    constant.def("get_value_strings", &ngraph::op::v0::Constant::get_value_strings);
     // Provide buffer access
-    constant.def_buffer([](const ngraph::op::Constant& self) -> py::buffer_info {
-        auto element_type = self.get_element_type();
+    constant.def_buffer([](const ngraph::op::v0::Constant& self) -> py::buffer_info {
+        auto element_type = self.get_output_element_type(0);
         if (element_type == ngraph::element::boolean)
         {
             return _get_buffer_info<char>(self);

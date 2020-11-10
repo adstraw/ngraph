@@ -33,7 +33,7 @@
 #include "ngraph/runtime/cpu/static_initialize.hpp"
 #include "ngraph/util.hpp"
 
-#ifdef NGRAPH_MLIR_ENABLE
+#ifdef NGRAPH_CPU_MLIR_ENABLE
 #include "contrib/mlir/backend/cpu/cpu_backend.hpp"
 #include "contrib/mlir/core/compiler.hpp"
 #endif
@@ -44,40 +44,28 @@ using namespace std;
 runtime::cpu::CPU_Executable::CPU_Executable(shared_ptr<Function> func,
                                              ngraph::pass::PassConfig& pass_config,
                                              Allocator* allocator,
-                                             bool performance_counters_enabled)
+                                             bool performance_counters_enabled,
+                                             EXECUTION_MODE mode)
 {
-    FunctionInstance& instance = m_function_instance;
-    if (instance.m_external_function == nullptr)
-    {
-        instance.m_external_function = make_shared<CPU_ExternalFunction>(func);
-        instance.m_external_function->m_emit_timing = performance_counters_enabled;
-        auto cf = instance.m_external_function->make_call_frame(pass_config, allocator);
-        instance.m_call_frame = dynamic_pointer_cast<CPU_CallFrame>(cf);
-    }
+    m_external_function = make_shared<CPU_ExternalFunction>(func, mode);
+    m_external_function->m_emit_timing = performance_counters_enabled;
+    auto cf = m_external_function->make_call_frame(pass_config, allocator);
+    m_call_frame = dynamic_pointer_cast<CPU_CallFrame>(cf);
+
     set_parameters_and_results(*func);
 }
 
 std::shared_ptr<ngraph::runtime::cpu::CPU_CallFrame> runtime::cpu::CPU_Executable::get_call_frame()
 {
-    FunctionInstance& instance = m_function_instance;
-    return instance.m_call_frame;
+    return m_call_frame;
 }
 
 bool runtime::cpu::CPU_Executable::call(const vector<shared_ptr<runtime::Tensor>>& outputs,
                                         const vector<shared_ptr<runtime::Tensor>>& inputs)
 {
-    bool rc = true;
+    m_call_frame->call(outputs, inputs);
 
-    FunctionInstance& instance = m_function_instance;
-    if (instance.m_external_function == nullptr)
-    {
-        NGRAPH_INFO;
-        throw runtime_error("compile() must be called before call().");
-    }
-
-    instance.m_call_frame->call(outputs, inputs);
-
-    return rc;
+    return true;
 }
 
 void runtime::cpu::CPU_Backend::remove_compiled_function(shared_ptr<Executable> exec)
@@ -117,24 +105,21 @@ void runtime::cpu::CPU_Backend::set_host_memory_allocator(Allocator* allocator)
 vector<runtime::PerformanceCounter> runtime::cpu::CPU_Executable::get_performance_data() const
 {
     vector<runtime::PerformanceCounter> rc;
-    const FunctionInstance& instance = m_function_instance;
-    if (instance.m_external_function != nullptr)
-    {
-        rc.insert(rc.end(),
-                  instance.m_external_function->get_perf_counters().begin(),
-                  instance.m_external_function->get_perf_counters().end());
-    }
+    rc.insert(rc.end(),
+              m_external_function->get_perf_counters().begin(),
+              m_external_function->get_perf_counters().end());
     return rc;
 }
 
-shared_ptr<ngraph::op::Parameter> runtime::cpu::CPU_Executable::get_parameter(size_t index) const
+shared_ptr<ngraph::op::v0::Parameter>
+    runtime::cpu::CPU_Executable::get_parameter(size_t index) const
 {
     const ParameterVector& parameters = get_parameters();
     NGRAPH_CHECK(index < parameters.size(), "create_tensor for input out of bounds");
     return parameters[index];
 }
 
-shared_ptr<ngraph::op::Result> runtime::cpu::CPU_Executable::get_result(size_t index) const
+shared_ptr<ngraph::op::v0::Result> runtime::cpu::CPU_Executable::get_result(size_t index) const
 {
     const ResultVector& results = get_results();
     NGRAPH_CHECK(index < results.size(), "create_tensor for input out of bounds");
@@ -143,31 +128,32 @@ shared_ptr<ngraph::op::Result> runtime::cpu::CPU_Executable::get_result(size_t i
 
 shared_ptr<runtime::Tensor> runtime::cpu::CPU_Executable::create_input_tensor(size_t input_index)
 {
-    shared_ptr<op::Parameter> parameter = get_parameter(input_index);
-    return make_shared<runtime::cpu::CPUTensor>(parameter->get_element_type(),
-                                                parameter->get_shape());
+    shared_ptr<op::v0::Parameter> parameter = get_parameter(input_index);
+    return make_shared<runtime::cpu::CPUTensor>(parameter->get_output_element_type(0),
+                                                parameter->get_output_shape(0));
 }
 
 shared_ptr<runtime::Tensor> runtime::cpu::CPU_Executable::create_input_tensor(size_t input_index,
                                                                               void* memory_pointer)
 {
-    shared_ptr<op::Parameter> parameter = get_parameter(input_index);
+    shared_ptr<op::v0::Parameter> parameter = get_parameter(input_index);
     return make_shared<runtime::cpu::CPUTensor>(
-        parameter->get_element_type(), parameter->get_shape(), memory_pointer);
+        parameter->get_output_element_type(0), parameter->get_output_shape(0), memory_pointer);
 }
 
 shared_ptr<runtime::Tensor> runtime::cpu::CPU_Executable::create_output_tensor(size_t output_index)
 {
-    shared_ptr<op::Result> result = get_result(output_index);
-    return make_shared<runtime::cpu::CPUTensor>(result->get_element_type(), result->get_shape());
+    shared_ptr<op::v0::Result> result = get_result(output_index);
+    return make_shared<runtime::cpu::CPUTensor>(result->get_output_element_type(0),
+                                                result->get_output_shape(0));
 }
 
 shared_ptr<runtime::Tensor> runtime::cpu::CPU_Executable::create_output_tensor(size_t output_index,
                                                                                void* memory_pointer)
 {
-    shared_ptr<op::Result> result = get_result(output_index);
+    shared_ptr<op::v0::Result> result = get_result(output_index);
     return make_shared<runtime::cpu::CPUTensor>(
-        result->get_element_type(), result->get_shape(), memory_pointer);
+        result->get_output_element_type(0), result->get_output_shape(0), memory_pointer);
 }
 
 vector<shared_ptr<runtime::Tensor>>
@@ -185,13 +171,13 @@ vector<shared_ptr<runtime::Tensor>> runtime::cpu::CPU_Executable::create_input_t
                      "create_input_tensor mismatch in pipeline_depth and memory_pointers");
     }
     vector<shared_ptr<runtime::cpu::CPUTensor>> tensors;
-    shared_ptr<op::Parameter> parameter = get_parameter(input_index);
+    shared_ptr<op::v0::Parameter> parameter = get_parameter(input_index);
     for (size_t i = 0; i < pipeline_depth; i++)
     {
         shared_ptr<runtime::cpu::CPUTensor> tensor;
         auto t =
             make_shared<runtime::cpu::CPUTensor>(parameter->get_element_type(),
-                                                 parameter->get_shape(),
+                                                 parameter->get_output_shape(0),
                                                  mem_ptr_size > 0 ? memory_pointers[i] : nullptr);
         tensor = static_pointer_cast<runtime::cpu::CPUTensor>(t);
         tensors.push_back(tensor);
@@ -219,13 +205,13 @@ vector<shared_ptr<runtime::Tensor>> runtime::cpu::CPU_Executable::create_output_
                      "create_output_tensor mismatch in pipeline_depth and memory_pointers");
     }
     vector<shared_ptr<runtime::cpu::CPUTensor>> tensors;
-    shared_ptr<op::Result> result = get_result(output_index);
+    shared_ptr<op::v0::Result> result = get_result(output_index);
     for (size_t i = 0; i < pipeline_depth; i++)
     {
         shared_ptr<runtime::cpu::CPUTensor> tensor;
         auto t =
-            make_shared<runtime::cpu::CPUTensor>(result->get_element_type(),
-                                                 result->get_shape(),
+            make_shared<runtime::cpu::CPUTensor>(result->get_output_element_type(0),
+                                                 result->get_output_shape(0),
                                                  mem_ptr_size > 0 ? memory_pointers[i] : nullptr);
         tensor = static_pointer_cast<runtime::cpu::CPUTensor>(t);
         tensors.push_back(tensor);
